@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://drive.google.com/file/d/13lfvbMZnRWze8iB6f_UddpAh9rwMk65N/view?usp=sharing" alt="VampiFox Golang ERP Framework Logo" width="400" />
+<img src="https://github.com/aditya-lucis/vampifox-gallery/blob/main/f2746b3641414521bd7110856e4ffdf8_0.png" alt="VampiFox Golang ERP Framework Logo" width="400" />
 
 # 🦊🧛 VampiFox ERP Framework - Modern Golang Open Source ERP
 
