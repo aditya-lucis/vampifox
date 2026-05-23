@@ -1,98 +1,135 @@
-# VampiFox Configuration
-# "Gulungan perjanjian" — dokumen yang mengatur seluruh kerajaan
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  VampiFox Configuration — "Gulungan Perjanjian"             ║
+# ║  Semua nilai sensitif WAJIB diganti sebelum production.     ║
+# ╚══════════════════════════════════════════════════════════════╝
 
 app:
-  name: VampiFox
+  name: "VampiFox"
   version: "0.1.0-nightfall"
-  env: development          # development | staging | production
-  secret_key: "GANTI_INI_DI_PRODUCTION"
+  env: "development"        # development | staging | production
   timezone: "Asia/Jakarta"
+  debug: true               # false di production
 
 server:
   host: "0.0.0.0"
   port: 8080
-  read_timeout: 30s
-  write_timeout: 30s
-  shutdown_timeout: 10s
+  read_timeout: "30s"
+  write_timeout: "30s"
+  shutdown_timeout: "15s"
   cors:
-    allowed_origins: ["*"]
-    allowed_methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+    allowed_origins:
+      - "http://localhost:3000"
+      - "http://localhost:5173"
+    allowed_methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "PATCH"
+      - "DELETE"
+      - "OPTIONS"
+    allowed_headers:
+      - "Authorization"
+      - "Content-Type"
+      - "X-VampiFox-Tenant"
+    expose_headers:
+      - "X-Request-ID"
+    allow_credentials: true
+    max_age: 86400
 
-# Fangs — koneksi database utama (sistem/public schema)
+# ── Fangs — Database ────────────────────────────────────────────
 fangs:
-  host: localhost
+  driver: "postgres"        # postgres | mysql | sqlserver | sqlite
+  host: "localhost"
   port: 5432
-  user: vampifox
-  password: "GANTI_INI"
-  dbname: vampifox_main
-  sslmode: disable
+  user: "vampifox"
+  password: "vampifox_dev"
+  dbname: "vampifox_main"
+  # SSL / TLS
+  sslmode: "disable"        # postgres: disable|require|verify-full
+  # Pool settings
   max_open_conns: 25
   max_idle_conns: 5
-  # Setiap tenant mendapat schema sendiri: vfx_{tenant_slug}
+  conn_max_lifetime: "1h"
+  conn_max_idle_time: "30m"
+  # SQLite only (diabaikan untuk driver lain)
+  sqlite_path: "./vampifox.db"
+  # Logging query (development only)
+  log_queries: true
+  slow_query_threshold: "200ms"
 
-# Shadow — Redis cache
+# ── Shadow — Redis Cache ─────────────────────────────────────────
 shadow:
   addr: "localhost:6379"
   password: ""
   db: 0
-  default_ttl: 15m
-  session_ttl: 7d
+  dial_timeout: "5s"
+  read_timeout: "3s"
+  write_timeout: "3s"
+  pool_size: 10
+  # TTL defaults
+  default_ttl: "15m"
+  session_ttl: "168h"       # 7 hari
+  tenant_cache_ttl: "5m"    # cache data tenant
 
-# Auth / Sanctum
+# ── Sanctum — Auth / JWT ─────────────────────────────────────────
 sanctum:
-  access_secret: "GANTI_INI_ACCESS_SECRET"
-  refresh_secret: "GANTI_INI_REFRESH_SECRET"
-  access_ttl: 15m
-  refresh_ttl: 168h   # 7 hari
+  access_secret: "GANTI_INI_MIN_32_KARAKTER_ACAK"
+  refresh_secret: "GANTI_INI_BEDA_DENGAN_ACCESS_SECRET"
+  access_ttl: "15m"
+  refresh_ttl: "168h"       # 7 hari
+  issuer: "vampifox"
+  # Bcrypt cost untuk hashing password (10-14)
+  bcrypt_cost: 12
 
-# Storage — MinIO / S3
+# ── Storage — File Storage ───────────────────────────────────────
 storage:
+  provider: "minio"         # minio | s3 | local
   endpoint: "localhost:9000"
   access_key: "vampifox"
-  secret_key: "GANTI_INI"
+  secret_key: "vampifox_dev"
   bucket: "vampifox-files"
   use_ssl: false
   region: "ap-southeast-1"
+  # Local provider (diabaikan jika minio/s3)
+  local_path: "./storage"
 
-# Queue — NATS
+# ── Queue — NATS JetStream ───────────────────────────────────────
 queue:
   url: "nats://localhost:4222"
   stream: "VAMPIFOX"
+  enabled: true
 
-# Mailer
+# ── Mailer ───────────────────────────────────────────────────────
 mailer:
-  provider: smtp    # smtp | sendgrid | ses
+  provider: "smtp"          # smtp | sendgrid | ses
   host: "localhost"
   port: 1025
+  username: ""
+  password: ""
   from_name: "VampiFox"
   from_email: "noreply@vampifox.io"
+  use_tls: false
 
-# Moonphase — scheduler cron
+# ── Moonphase — Scheduler ────────────────────────────────────────
 moonphase:
   enabled: true
   timezone: "Asia/Jakarta"
 
-# Modul yang aktif (bisa dikonfigurasi per-plan)
-modules:
-  accounting: true
-  inventory: true
-  purchasing: true
-  sales: true
-  hrm: true
-  crm: true
-  manufacturing: false
-  project: true
-  assets: true
-
-# Logging
+# ── Logging / NightVision ────────────────────────────────────────
 log:
-  level: info       # debug | info | warn | error
-  format: json      # json | console
-  output: stdout    # stdout | file
-  file_path: "/var/log/vampifox/app.log"
+  level: "debug"            # debug | info | warn | error
+  format: "console"         # console | json
+  output: "stdout"          # stdout | file | both
+  file_path: "./logs/vampifox.log"
+  max_size_mb: 100
+  max_backups: 5
+  max_age_days: 30
+  compress: true
 
-# Telemetry / Observability
+# ── Telemetry / Observability ────────────────────────────────────
 telemetry:
   enabled: false
   otlp_endpoint: "http://localhost:4317"
   service_name: "vampifox"
+  environment: "development"
+  sample_rate: 1.0          # 0.0 - 1.0
