@@ -1,0 +1,39 @@
+# ── Binaries ──────────────────────────────────────────────────
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# ── Go ────────────────────────────────────────────────────────
+vendor/
+coverage.out
+coverage.html
+*.test
+
+# ── Config (secrets jangan masuk repo) ────────────────────────
+configs/vampifox.local.yaml
+configs/*.prod.yaml
+.env
+.env.*
+!.env.example
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Docker volumes (kalau mount lokal) ───────────────────────
+deploy/docker/data/
+
+# ── Logs ──────────────────────────────────────────────────────
+*.log
+logs/

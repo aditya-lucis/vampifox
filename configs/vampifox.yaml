@@ -1,0 +1,98 @@
+# VampiFox Configuration
+# "Gulungan perjanjian" — dokumen yang mengatur seluruh kerajaan
+
+app:
+  name: VampiFox
+  version: "0.1.0-nightfall"
+  env: development          # development | staging | production
+  secret_key: "GANTI_INI_DI_PRODUCTION"
+  timezone: "Asia/Jakarta"
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+  shutdown_timeout: 10s
+  cors:
+    allowed_origins: ["*"]
+    allowed_methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+
+# Fangs — koneksi database utama (sistem/public schema)
+fangs:
+  host: localhost
+  port: 5432
+  user: vampifox
+  password: "GANTI_INI"
+  dbname: vampifox_main
+  sslmode: disable
+  max_open_conns: 25
+  max_idle_conns: 5
+  # Setiap tenant mendapat schema sendiri: vfx_{tenant_slug}
+
+# Shadow — Redis cache
+shadow:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+  default_ttl: 15m
+  session_ttl: 7d
+
+# Auth / Sanctum
+sanctum:
+  access_secret: "GANTI_INI_ACCESS_SECRET"
+  refresh_secret: "GANTI_INI_REFRESH_SECRET"
+  access_ttl: 15m
+  refresh_ttl: 168h   # 7 hari
+
+# Storage — MinIO / S3
+storage:
+  endpoint: "localhost:9000"
+  access_key: "vampifox"
+  secret_key: "GANTI_INI"
+  bucket: "vampifox-files"
+  use_ssl: false
+  region: "ap-southeast-1"
+
+# Queue — NATS
+queue:
+  url: "nats://localhost:4222"
+  stream: "VAMPIFOX"
+
+# Mailer
+mailer:
+  provider: smtp    # smtp | sendgrid | ses
+  host: "localhost"
+  port: 1025
+  from_name: "VampiFox"
+  from_email: "noreply@vampifox.io"
+
+# Moonphase — scheduler cron
+moonphase:
+  enabled: true
+  timezone: "Asia/Jakarta"
+
+# Modul yang aktif (bisa dikonfigurasi per-plan)
+modules:
+  accounting: true
+  inventory: true
+  purchasing: true
+  sales: true
+  hrm: true
+  crm: true
+  manufacturing: false
+  project: true
+  assets: true
+
+# Logging
+log:
+  level: info       # debug | info | warn | error
+  format: json      # json | console
+  output: stdout    # stdout | file
+  file_path: "/var/log/vampifox/app.log"
+
+# Telemetry / Observability
+telemetry:
+  enabled: false
+  otlp_endpoint: "http://localhost:4317"
+  service_name: "vampifox"

@@ -1,0 +1,23 @@
+# VampiFox .gitattributes
+# Pastikan file PowerShell selalu tersimpan dengan CRLF di repo
+# sehingga Windows tidak perlu konversi manual
+
+# PowerShell — wajib CRLF
+*.ps1  eol=crlf
+*.psm1 eol=crlf
+*.psd1 eol=crlf
+*.bat  eol=crlf
+*.cmd  eol=crlf
+
+# Go source — LF
+*.go   eol=lf
+
+# Config files — LF
+*.yaml eol=lf
+*.yml  eol=lf
+*.json eol=lf
+*.toml eol=lf
+*.sql  eol=lf
+
+# Markdown — LF
+*.md   eol=lf

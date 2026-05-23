@@ -1,0 +1,85 @@
+# VampiFox Local Development Stack
+# "Membangun kerajaan di mesin lokal"
+name: vampifox
+
+services:
+  # ─── VampiFox App ───────────────────────────────────────────
+  vampifox:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      VAMPIFOX_CONFIG: /app/configs/vampifox.yaml
+    volumes:
+      - ../../configs:/app/configs:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─── Fangs: PostgreSQL ──────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vampifox
+      POSTGRES_PASSWORD: vampifox_dev
+      POSTGRES_DB: vampifox_main
+    ports:
+      - "5432:5432"
+    volumes:
+      - fangs_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vampifox"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Shadow: Redis ──────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - shadow_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── Storage: MinIO ─────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: vampifox
+      MINIO_ROOT_PASSWORD: vampifox_dev
+    volumes:
+      - minio_data:/data
+
+  # ─── Queue: NATS ────────────────────────────────────────────
+  nats:
+    image: nats:2-alpine
+    command: "--jetstream"
+    ports:
+      - "4222:4222"
+      - "8222:8222"  # monitoring
+
+  # ─── Mail: Mailpit (dev only) ────────────────────────────────
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+
+volumes:
+  fangs_data:
+  shadow_data:
+  minio_data:
