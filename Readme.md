@@ -172,5 +172,5 @@ MIT License — free to use, modify, and distribute.
 ---
 
 <div align="center">
-Made with 🧛🦊 by VampiFox Team
+Made with ❤️ by Aditya Lucis, A Vampire Prince who lives in the shadow
 </div>
