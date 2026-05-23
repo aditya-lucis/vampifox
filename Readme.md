@@ -1,23 +1,35 @@
 <div align="center">
 
-<img src="assets/img/vampifox.jpg" alt="VampiFox Logo" width="400" />
+<img src="assets/img/vampifox.jpg" alt="VampiFox Golang ERP Framework Logo" width="400" />
 
-# 🦊🧛 VampiFox ERP Framework
+# 🦊🧛 VampiFox ERP Framework - Modern Golang Open Source ERP
 
 **"The Night Never Sleeps, The Fox Never Rests"**
 
-### 💡 Key Characteristics
+VampiFox is a high-performance, modular, and open-source **Enterprise Resource Planning (ERP) framework** built on **Golang**. Designed to build scalable business management systems, VampiFox provides out-of-the-box multi-tenancy, robust RBAC, and microservices-ready architecture.
 
-A modern ERP Framework built on **Golang** — fast, modular, and *multi-tenant*. Designed with a unique character:
+### 💡 The Core Philosophy
 
-* 🦊 **The Fox:** Clever, agile, and adaptive — the foundation for a nimble modular architecture.
-* 🧛 **The Vampire:** Immortal, powerful, and data-hungry — the pillar for a *persistent* and *data-driven* system.
+Our ERP framework is driven by a unique dual-character architecture:
+* 🦊 **The Fox:** Clever, agile, and adaptive — the foundation for a nimble, modular business architecture (HRM, CRM, Accounting, Inventory).
+* 🧛 **The Vampire:** Immortal, powerful, and data-hungry — the pillar for a *persistent*, highly concurrent, and *data-driven* enterprise backend system.
 
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-purple)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-orange)](https://github.com/vampifox)
 
 </div>
+
+---
+
+## 🌟 Key Features
+
+VampiFox is designed to be the ultimate Golang ERP starter kit for developers and enterprises:
+* **True Multi-Tenancy:** Securely isolate data for multiple companies or branches within a single database instance.
+* **Modular ERP Modules:** Pre-structured domains for Accounting, Inventory, Purchasing, Sales, HRM, CRM, and Project Management.
+* **Dual API Support:** Fully equipped with both REST API (Gin) and GraphQL (gqlgen) endpoints.
+* **Advanced RBAC (Role-Based Access Control):** Granular permission management from the Tenant Owner (Overlord) down to the Auditor (Spectre).
+* **High Performance:** Powered by Go 1.23+, PostgreSQL, Redis caching, and NATS JetStream for event-driven messaging.
 
 ---
 
@@ -28,6 +40,7 @@ A modern ERP Framework built on **Golang** — fast, modular, and *multi-tenant*
 ```powershell
 # Open PowerShell as Administrator
 .\scripts\setup-windows.ps1
+
 ```
 
 This script automatically installs: **Go**, **Git**, **Docker Desktop**, **VS Code**, and required extensions.
