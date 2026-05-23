@@ -1,4 +1,4 @@
-module vampifox
+module github.com/aditya-lucis/vampifox
 
 go 1.25.0
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
-	"vampifox/internal/den"
 
+	"github.com/aditya-lucis/vampifox/internal/den"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )

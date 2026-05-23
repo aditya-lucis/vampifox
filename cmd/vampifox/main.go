@@ -10,7 +10,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"vampifox/internal/den"
+
+	"github.com/aditya-lucis/vampifox/internal/den"
 )
 
 func main() {

@@ -5,10 +5,10 @@ package middleware
 import (
 	"net/http"
 	"strings"
-	"vampifox/internal/core/auth"
-	"vampifox/internal/core/rbac"
-	"vampifox/internal/core/tenant"
 
+	"github.com/aditya-lucis/vampifox/internal/core/auth"
+	"github.com/aditya-lucis/vampifox/internal/core/rbac"
+	"github.com/aditya-lucis/vampifox/internal/core/tenant"
 	"github.com/gin-gonic/gin"
 )
 

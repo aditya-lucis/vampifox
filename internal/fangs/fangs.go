@@ -20,8 +20,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
-	"vampifox/internal/den"
 
+	"github.com/aditya-lucis/vampifox/internal/den"
 	"go.uber.org/zap"
 	gormlogger "gorm.io/gorm/logger"
 
