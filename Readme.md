@@ -33,6 +33,21 @@ VampiFox is designed to be the ultimate Golang ERP starter kit for developers an
 
 ---
 
+## 📋 Project Status
+
+**⚠️ Under Heavy Development** — Versi saat ini masih dalam tahap aktif pengembangan.
+
+Fitur inti sudah mulai terbentuk, tapi masih banyak yang akan diubah dan ditambahkan.
+
+---
+
+## 📖 Architecture Documentation
+
+- [🇮🇩 VampiFox Architecture v0.2 (Bahasa Indonesia)](https://github.com/aditya-lucis/vampifox-gallery/blob/main/VampiFox-Architecture-v0.2.pdf)
+- [🇬🇧 VampiFox Architecture v0.2 (English)](https://github.com/aditya-lucis/vampifox-gallery/blob/main/VampiFox_Architecture_v0.2_EN.pdf)
+
+---
+
 ## 🚀 Quick Start (Windows)
 
 ### 1. First Time — Run the Setup Wizard
