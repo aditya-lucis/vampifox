@@ -35,10 +35,10 @@ import (
 // ═══════════════════════════════════════════════════════════════
 
 var (
-	ErrInvalidToken = errors.New("token tidak valid")
-	ErrTokenExpired = errors.New("token sudah kadaluarsa")
-	ErrTokenRevoked = errors.New("token sudah dicabut — silakan login ulang")
-	ErrNotInvited   = errors.New("akses ditolak")
+	ErrInvalidToken   = errors.New("token tidak valid")
+	ErrTokenExpired   = errors.New("token sudah kadaluarsa")
+	ErrTokenRevoked   = errors.New("token sudah dicabut — silakan login ulang")
+	ErrNotInvited     = errors.New("akses ditolak")
 )
 
 // ═══════════════════════════════════════════════════════════════

@@ -5,9 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/aditya-lucis/vampifox/internal/shadow"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+
+	"github.com/aditya-lucis/vampifox/internal/shadow"
 )
 
 // ═══════════════════════════════════════════════════════════════
@@ -152,13 +153,13 @@ func (r *Repository) Create(ctx context.Context, t *Tenant) error {
 
 	// Cache tenant yang baru dibuat
 	ts := r.systemShadow()
-	_ = ts.Haunt(ctx, cacheKeyBySlug(t.Slug), t, tenantCacheTTL)
+	_ = ts.Haunt(ctx, cacheKeyBySlug(t.TenantSlug), t, tenantCacheTTL)
 	if t.Domain != "" {
 		_ = ts.Haunt(ctx, cacheKeyByDomain(t.Domain), t, tenantCacheTTL)
 	}
 
 	r.logger.Info("Tenant dibuat",
-		zap.String("slug", t.Slug),
+		zap.String("slug", t.TenantSlug),
 		zap.String("plan", string(t.Plan)),
 	)
 	return nil
@@ -205,7 +206,7 @@ func (r *Repository) UpdateStatus(ctx context.Context, t *Tenant, status Status)
 	r.invalidateCache(ctx, t)
 
 	r.logger.Info("Status tenant diubah",
-		zap.String("slug", t.Slug),
+		zap.String("slug", t.TenantSlug),
 		zap.String("status", string(status)),
 	)
 	return nil
@@ -228,7 +229,7 @@ func (r *Repository) UpdateSettings(ctx context.Context, t *Tenant) error {
 // invalidateCache menghapus semua cache entry untuk tenant ini.
 func (r *Repository) invalidateCache(ctx context.Context, t *Tenant) {
 	ts := r.systemShadow()
-	_ = ts.Vanish(ctx, cacheKeyBySlug(t.Slug))
+	_ = ts.Vanish(ctx, cacheKeyBySlug(t.TenantSlug))
 	if t.Domain != "" {
 		_ = ts.Vanish(ctx, cacheKeyByDomain(t.Domain))
 	}

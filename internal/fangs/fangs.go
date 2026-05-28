@@ -1,18 +1,4 @@
 // Package fangs — Database layer VampiFox.
-//
-// "Fangs" adalah cara vampire menyerap sumber daya.
-// Fangs mengelola koneksi ke RDBMS apapun yang didukung GORM:
-// PostgreSQL, MySQL, SQL Server, dan SQLite.
-//
-// Fangs tidak peduli dengan business logic — ia hanya bertanggung jawab
-// atas koneksi, pool, logging query, dan isolasi schema per-tenant.
-//
-// Alur penggunaan:
-//
-//	f, err := fangs.New(cfg)   // buka koneksi ke database sistem
-//	db := f.DB()               // ambil *gorm.DB untuk query
-//	tenantDB := f.For(tenant)  // ambil *gorm.DB yang sudah di-scope ke tenant
-//	f.Close()                  // tutup semua koneksi
 package fangs
 
 import (
@@ -21,7 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aditya-lucis/vampifox/internal/den"
 	"go.uber.org/zap"
 	gormlogger "gorm.io/gorm/logger"
 
@@ -30,379 +15,228 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
+
+	"github.com/aditya-lucis/vampifox/internal/config"
 )
 
-// ═══════════════════════════════════════════════════════════════
-//  Fangs — main struct
-// ═══════════════════════════════════════════════════════════════
-
 // Fangs mengelola koneksi database VampiFox.
-// Gunakan New() untuk membuat instance — jangan buat langsung.
 type Fangs struct {
 	db     *gorm.DB
-	cfg    den.FangsConfig
+	cfg    config.FangsConfig
 	logger *zap.Logger
 }
 
-// New membuka koneksi ke database dan mengembalikan Fangs.
-//
-// Fangs akan:
-//   - Memilih GORM dialect yang sesuai berdasarkan cfg.Driver
-//   - Mengkonfigurasi connection pool
-//   - Memasang custom query logger (log slow query, log semua query di dev)
-//   - Melakukan ping untuk memastikan koneksi berhasil
-func New(cfg den.FangsConfig, logger *zap.Logger) (*Fangs, error) {
+// New membuka koneksi ke database.
+func New(cfg config.FangsConfig, logger *zap.Logger) (*Fangs, error) {
 	if logger == nil {
 		return nil, fmt.Errorf("[Fangs] logger tidak boleh nil")
 	}
 
-	// ── GORM Config ───────────────────────────────────────────────
 	gormCfg := &gorm.Config{
-		// PrepareStmt: cache prepared statement — lebih cepat untuk query berulang.
-		// Di SQLite kita nonaktifkan karena tidak support concurrent prepared stmt.
-		PrepareStmt:                              cfg.Driver != den.DBDriverSQLite,
+		PrepareStmt:                              cfg.Driver != config.DBDriverSQLite,
 		DisableForeignKeyConstraintWhenMigrating: false,
 		Logger: buildGORMLogger(cfg, logger),
 	}
 
-	// ── Buka koneksi sesuai driver ────────────────────────────────
 	db, err := openDB(cfg, gormCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	// ── Connection pool ───────────────────────────────────────────
 	if err := configurePool(db, cfg); err != nil {
 		return nil, err
 	}
 
-	// ── Ping — pastikan koneksi benar-benar hidup ─────────────────
 	if err := ping(db); err != nil {
 		return nil, fmt.Errorf("[Fangs] database tidak merespons (%s@%s/%s): %w",
 			cfg.User, cfg.Host, cfg.DBName, err)
 	}
 
-	logger.Info("🦷 Fangs terhubung",
+	logger.Info("Fangs terhubung",
 		zap.String("driver", string(cfg.Driver)),
 		zap.String("host", cfg.Host),
 		zap.String("dbname", cfg.DBName),
-		zap.Int("max_open_conns", cfg.MaxOpenConns),
-		zap.Int("max_idle_conns", cfg.MaxIdleConns),
 	)
 
-	return &Fangs{
-		db:     db,
-		cfg:    cfg,
-		logger: logger,
-	}, nil
+	return &Fangs{db: db, cfg: cfg, logger: logger}, nil
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Accessors
-// ═══════════════════════════════════════════════════════════════
+func (f *Fangs) DB() *gorm.DB { return f.db }
 
-// DB mengembalikan *gorm.DB koneksi sistem (bukan tenant-specific).
-// Pakai ini untuk query ke tabel sistem seperti tenants, users global, dll.
-func (f *Fangs) DB() *gorm.DB {
-	return f.db
-}
-
-// For mengembalikan *gorm.DB yang sudah di-scope ke schema tenant.
-//
-// Setiap driver punya cara berbeda untuk isolasi tenant:
-//   - PostgreSQL  : SET search_path TO vfx_{slug}
-//   - MySQL       : USE vfx_{slug}
-//   - SQL Server  : konteks schema via table prefix
-//   - SQLite      : tidak ada isolasi schema (single-tenant / dev only)
-//
-// Panggil ini di setiap handler yang butuh data tenant:
-//
-//	db := fangs.For(tenant)
-//	db.Find(&invoices)  // otomatis query ke schema tenant
 func (f *Fangs) For(tenant TenantScope) *gorm.DB {
 	schemaName := tenant.SchemaName()
 	if schemaName == "" {
-		f.logger.Warn("[Fangs] For() dipanggil tanpa schema name — fallback ke DB sistem",
-			zap.String("tenant", tenant.Slug()),
-		)
 		return f.db
 	}
-
 	return f.scopeDB(schemaName)
 }
 
-// scopeDB menerapkan schema tenant ke *gorm.DB sesuai driver.
 func (f *Fangs) scopeDB(schemaName string) *gorm.DB {
 	switch f.cfg.Driver {
-	case den.DBDriverPostgres:
-		// PostgreSQL: set search_path untuk sesi ini
+	case config.DBDriverPostgres:
 		return f.db.Exec(fmt.Sprintf("SET search_path TO %s, public", schemaName))
-
-	case den.DBDriverMySQL:
-		// MySQL tidak punya schema — pakai database terpisah per tenant
+	case config.DBDriverMySQL:
 		return f.db.Exec(fmt.Sprintf("USE %s", schemaName))
-
-	case den.DBDriverSQLServer:
-		// SQL Server: naming convention dengan schema prefix
-		// Query akan pakai [schemaName].[tableName] via NamingStrategy
-		return f.db.Scopes(sqlServerSchema(schemaName))
-
-	case den.DBDriverSQLite:
-		// SQLite: tidak ada isolasi schema, pakai table prefix sebagai workaround
-		return f.db.Scopes(sqlitePrefix(schemaName))
-
+	case config.DBDriverSQLServer:
+		return f.db.Scopes(func(db *gorm.DB) *gorm.DB {
+			return db.Session(&gorm.Session{NewDB: true})
+		})
 	default:
 		return f.db
 	}
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Schema Management
-// ═══════════════════════════════════════════════════════════════
-
-// CreateTenantSchema membuat schema baru untuk tenant yang baru didaftarkan.
-// Dipanggil satu kali saat tenant di-provision, bukan per-request.
 func (f *Fangs) CreateTenantSchema(ctx context.Context, schemaName string) error {
 	if schemaName == "" {
 		return fmt.Errorf("[Fangs] schema name tidak boleh kosong")
 	}
-
 	var query string
 	switch f.cfg.Driver {
-	case den.DBDriverPostgres:
+	case config.DBDriverPostgres:
 		query = fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schemaName)
-	case den.DBDriverMySQL:
+	case config.DBDriverMySQL:
 		query = fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", schemaName)
-	case den.DBDriverSQLServer:
-		// SQL Server: CREATE SCHEMA tidak support IF NOT EXISTS, pakai cek manual
-		query = fmt.Sprintf(`
-			IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = '%s')
-			BEGIN
-				EXEC('CREATE SCHEMA [%s]')
-			END`, schemaName, schemaName)
-	case den.DBDriverSQLite:
-		// SQLite tidak punya schema — tidak perlu dibuat
+	case config.DBDriverSQLServer:
+		query = fmt.Sprintf(`IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = '%s') BEGIN EXEC('CREATE SCHEMA [%s]') END`, schemaName, schemaName)
+	case config.DBDriverSQLite:
 		return nil
 	}
-
 	if err := f.db.WithContext(ctx).Exec(query).Error; err != nil {
 		return fmt.Errorf("[Fangs] gagal membuat schema '%s': %w", schemaName, err)
 	}
-
-	f.logger.Info("Schema tenant dibuat",
-		zap.String("schema", schemaName),
-		zap.String("driver", string(f.cfg.Driver)),
-	)
+	f.logger.Info("Schema tenant dibuat", zap.String("schema", schemaName))
 	return nil
 }
 
-// DropTenantSchema menghapus schema tenant beserta semua datanya.
-// ⚠️  OPERASI INI TIDAK BISA DIBATALKAN. Pastikan sudah ada backup.
 func (f *Fangs) DropTenantSchema(ctx context.Context, schemaName string) error {
 	if schemaName == "" {
 		return fmt.Errorf("[Fangs] schema name tidak boleh kosong")
 	}
-
-	// Proteksi: jangan sampai hapus schema sistem
-	if schemaName == "public" || schemaName == "vfx_system" || schemaName == "dbo" {
-		return fmt.Errorf("[Fangs] menghapus schema sistem '%s' tidak diizinkan", schemaName)
+	for _, reserved := range []string{"public", "vfx_system", "dbo"} {
+		if schemaName == reserved {
+			return fmt.Errorf("[Fangs] menghapus schema sistem '%s' tidak diizinkan", schemaName)
+		}
 	}
-
 	var query string
 	switch f.cfg.Driver {
-	case den.DBDriverPostgres:
+	case config.DBDriverPostgres:
 		query = fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName)
-	case den.DBDriverMySQL:
+	case config.DBDriverMySQL:
 		query = fmt.Sprintf("DROP DATABASE IF EXISTS %s", schemaName)
-	case den.DBDriverSQLServer:
-		// SQL Server: harus drop semua object dulu, lalu drop schema
-		// Untuk sekarang gunakan dynamic SQL
-		query = fmt.Sprintf(`
-			DECLARE @sql NVARCHAR(MAX) = ''
-			SELECT @sql += 'DROP TABLE [%s].[' + TABLE_NAME + '];'
-			FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '%s'
-			EXEC sp_executesql @sql
-			IF EXISTS (SELECT 1 FROM sys.schemas WHERE name = '%s')
-				DROP SCHEMA [%s]`,
-			schemaName, schemaName, schemaName, schemaName)
-	case den.DBDriverSQLite:
+	case config.DBDriverSQLite:
 		return nil
+	default:
+		return fmt.Errorf("[Fangs] DropSchema tidak didukung untuk driver %s", f.cfg.Driver)
 	}
-
 	if err := f.db.WithContext(ctx).Exec(query).Error; err != nil {
 		return fmt.Errorf("[Fangs] gagal drop schema '%s': %w", schemaName, err)
 	}
-
-	f.logger.Warn("⚠️  Schema tenant dihapus",
-		zap.String("schema", schemaName),
-	)
+	f.logger.Warn("Schema tenant dihapus", zap.String("schema", schemaName))
 	return nil
 }
 
-// TenantSchemaExists memeriksa apakah schema tenant sudah ada.
 func (f *Fangs) TenantSchemaExists(ctx context.Context, schemaName string) (bool, error) {
 	var count int64
 	var query string
 	var args []interface{}
-
 	switch f.cfg.Driver {
-	case den.DBDriverPostgres:
+	case config.DBDriverPostgres:
 		query = "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = $1"
 		args = []interface{}{schemaName}
-	case den.DBDriverMySQL:
+	case config.DBDriverMySQL:
 		query = "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?"
 		args = []interface{}{schemaName}
-	case den.DBDriverSQLServer:
-		query = "SELECT COUNT(*) FROM sys.schemas WHERE name = @p1"
-		args = []interface{}{schemaName}
-	case den.DBDriverSQLite:
-		// SQLite tidak punya schema, selalu "ada"
+	case config.DBDriverSQLite:
 		return true, nil
+	default:
+		return false, fmt.Errorf("[Fangs] TenantSchemaExists tidak didukung untuk driver %s", f.cfg.Driver)
 	}
-
 	if err := f.db.WithContext(ctx).Raw(query, args...).Scan(&count).Error; err != nil {
-		return false, fmt.Errorf("[Fangs] gagal cek schema '%s': %w", schemaName, err)
+		return false, err
 	}
 	return count > 0, nil
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Health & Lifecycle
-// ═══════════════════════════════════════════════════════════════
-
-// Ping melakukan health check ke database.
-// Cocok dipakai di endpoint /health.
 func (f *Fangs) Ping(ctx context.Context) error {
 	sqlDB, err := f.db.DB()
 	if err != nil {
-		return fmt.Errorf("[Fangs] gagal mendapatkan sql.DB: %w", err)
+		return err
 	}
-	if err := sqlDB.PingContext(ctx); err != nil {
-		return fmt.Errorf("[Fangs] database tidak merespons: %w", err)
-	}
-	return nil
+	return sqlDB.PingContext(ctx)
 }
 
-// Stats mengembalikan statistik connection pool saat ini.
-// Berguna untuk monitoring dan debugging.
 func (f *Fangs) Stats() (sql.DBStats, error) {
 	sqlDB, err := f.db.DB()
 	if err != nil {
-		return sql.DBStats{}, fmt.Errorf("[Fangs] gagal mendapatkan sql.DB: %w", err)
+		return sql.DBStats{}, err
 	}
 	return sqlDB.Stats(), nil
 }
 
-// Close menutup semua koneksi database.
-// Dipanggil saat Den.Slumber().
 func (f *Fangs) Close() error {
 	sqlDB, err := f.db.DB()
 	if err != nil {
-		return fmt.Errorf("[Fangs] gagal mendapatkan sql.DB saat close: %w", err)
+		return err
 	}
 	if err := sqlDB.Close(); err != nil {
-		return fmt.Errorf("[Fangs] gagal menutup koneksi: %w", err)
+		return err
 	}
-	f.logger.Info("🦷 Fangs ditarik — koneksi database ditutup")
+	f.logger.Info("Fangs ditutup")
 	return nil
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  TenantScope interface
-// ═══════════════════════════════════════════════════════════════
-
-// TenantScope adalah interface minimal yang dibutuhkan Fangs
-// untuk menentukan schema database yang tepat.
-//
-// Package tenant mengimplementasikan interface ini via *tenant.Tenant.
-// Dengan interface ini, Fangs tidak punya dependency ke package tenant —
-// menghindari circular import.
+// TenantScope interface untuk fangs.For()
 type TenantScope interface {
-	// Slug mengembalikan identifier unik tenant, e.g. "pt-maju-jaya".
 	Slug() string
-
-	// SchemaName mengembalikan nama schema database tenant,
-	// e.g. "vfx_pt_maju_jaya".
 	SchemaName() string
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Internal helpers
-// ═══════════════════════════════════════════════════════════════
+// Internal helpers
 
-// openDB membuka koneksi GORM sesuai driver yang dikonfigurasi.
-func openDB(cfg den.FangsConfig, gormCfg *gorm.Config) (*gorm.DB, error) {
+func openDB(cfg config.FangsConfig, gormCfg *gorm.Config) (*gorm.DB, error) {
 	dsn := cfg.DSN()
-	if dsn == "" {
-		return nil, fmt.Errorf("[Fangs] DSN kosong untuk driver '%s'", cfg.Driver)
-	}
-
-	var db *gorm.DB
-	var err error
-
 	switch cfg.Driver {
-	case den.DBDriverPostgres:
-		db, err = gorm.Open(postgres.Open(dsn), gormCfg)
-
-	case den.DBDriverMySQL:
-		db, err = gorm.Open(mysql.Open(dsn), gormCfg)
-
-	case den.DBDriverSQLServer:
-		db, err = gorm.Open(sqlserver.Open(dsn), gormCfg)
-
-	case den.DBDriverSQLite:
-		db, err = gorm.Open(sqlite.Open(dsn), gormCfg)
-
+	case config.DBDriverPostgres:
+		return gorm.Open(postgres.Open(dsn), gormCfg)
+	case config.DBDriverMySQL:
+		return gorm.Open(mysql.Open(dsn), gormCfg)
+	case config.DBDriverSQLServer:
+		return gorm.Open(sqlserver.Open(dsn), gormCfg)
+	case config.DBDriverSQLite:
+		return gorm.Open(sqlite.Open(dsn), gormCfg)
 	default:
-		return nil, fmt.Errorf(
-			"[Fangs] driver '%s' tidak dikenal. Pilihan: postgres, mysql, sqlserver, sqlite",
-			cfg.Driver,
-		)
+		return nil, fmt.Errorf("[Fangs] driver '%s' tidak dikenal", cfg.Driver)
 	}
-
-	if err != nil {
-		return nil, fmt.Errorf("[Fangs] gagal membuka koneksi %s: %w", cfg.Driver, err)
-	}
-
-	return db, nil
 }
 
-// configurePool mengatur connection pool sesuai config.
-func configurePool(db *gorm.DB, cfg den.FangsConfig) error {
+func configurePool(db *gorm.DB, cfg config.FangsConfig) error {
 	sqlDB, err := db.DB()
 	if err != nil {
-		return fmt.Errorf("[Fangs] gagal mendapatkan sql.DB untuk konfigurasi pool: %w", err)
+		return err
 	}
-
 	maxOpen := cfg.MaxOpenConns
 	if maxOpen <= 0 {
-		maxOpen = 25 // default
+		maxOpen = 25
 	}
-
 	maxIdle := cfg.MaxIdleConns
 	if maxIdle <= 0 {
-		maxIdle = 5 // default
+		maxIdle = 5
 	}
-
 	connMaxLifetime := cfg.ConnMaxLifetime
 	if connMaxLifetime == 0 {
 		connMaxLifetime = time.Hour
 	}
-
 	connMaxIdleTime := cfg.ConnMaxIdleTime
 	if connMaxIdleTime == 0 {
 		connMaxIdleTime = 30 * time.Minute
 	}
-
 	sqlDB.SetMaxOpenConns(maxOpen)
 	sqlDB.SetMaxIdleConns(maxIdle)
 	sqlDB.SetConnMaxLifetime(connMaxLifetime)
 	sqlDB.SetConnMaxIdleTime(connMaxIdleTime)
-
 	return nil
 }
 
-// ping melakukan koneksi test ke database.
 func ping(db *gorm.DB) error {
 	sqlDB, err := db.DB()
 	if err != nil {
@@ -413,57 +247,23 @@ func ping(db *gorm.DB) error {
 	return sqlDB.PingContext(ctx)
 }
 
-// sqlServerSchema mengembalikan GORM scope yang menambahkan schema prefix
-// untuk SQL Server.
-func sqlServerSchema(schemaName string) func(*gorm.DB) *gorm.DB {
-	return func(db *gorm.DB) *gorm.DB {
-		// SQL Server menggunakan [schema].[table] notation
-		return db.Session(&gorm.Session{
-			NewDB: true,
-		})
-		// TODO: implementasi full via custom NamingStrategy
-		// saat module pertama (accounting) mulai dibangun
-	}
-}
-
-// sqlitePrefix mengembalikan GORM scope untuk SQLite.
-// SQLite tidak punya schema — table prefix digunakan sebagai workaround.
-func sqlitePrefix(schemaName string) func(*gorm.DB) *gorm.DB {
-	return func(db *gorm.DB) *gorm.DB {
-		// SQLite: pakai table prefix sebagai namespace sederhana
-		// e.g. schemaName="vfx_tenant_a", table="invoices" → "vfx_tenant_a_invoices"
-		return db.Session(&gorm.Session{
-			NewDB: true,
-		})
-		// TODO: implementasi via GORM NamingStrategy.TablePrefix
-	}
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  GORM Logger — custom logger yang terintegrasi dengan Zap
-// ═══════════════════════════════════════════════════════════════
-
-// buildGORMLogger membuat GORM logger yang terintegrasi dengan zap.
-func buildGORMLogger(cfg den.FangsConfig, logger *zap.Logger) gormlogger.Interface {
-	level := gormlogger.Warn // default: hanya log warning dan error
+func buildGORMLogger(cfg config.FangsConfig, logger *zap.Logger) gormlogger.Interface {
+	level := gormlogger.Warn
 	if cfg.LogQueries {
-		level = gormlogger.Info // log semua query
+		level = gormlogger.Info
 	}
-
 	slowThreshold := cfg.SlowQueryThreshold
 	if slowThreshold == 0 {
 		slowThreshold = 200 * time.Millisecond
 	}
-
 	return &zapGORMLogger{
-		zap:               logger.Named("fangs"),
-		level:             level,
-		slowThreshold:     slowThreshold,
+		zap:                   logger.Named("fangs"),
+		level:                 level,
+		slowThreshold:         slowThreshold,
 		skipErrRecordNotFound: true,
 	}
 }
 
-// zapGORMLogger adalah implementasi gormlogger.Interface yang menggunakan zap.
 type zapGORMLogger struct {
 	zap                   *zap.Logger
 	level                 gormlogger.LogLevel
@@ -472,61 +272,39 @@ type zapGORMLogger struct {
 }
 
 func (l *zapGORMLogger) LogMode(level gormlogger.LogLevel) gormlogger.Interface {
-	newLogger := *l
-	newLogger.level = level
-	return &newLogger
+	n := *l; n.level = level; return &n
 }
-
 func (l *zapGORMLogger) Info(_ context.Context, msg string, args ...interface{}) {
 	if l.level >= gormlogger.Info {
 		l.zap.Sugar().Infof(msg, args...)
 	}
 }
-
 func (l *zapGORMLogger) Warn(_ context.Context, msg string, args ...interface{}) {
 	if l.level >= gormlogger.Warn {
 		l.zap.Sugar().Warnf(msg, args...)
 	}
 }
-
 func (l *zapGORMLogger) Error(_ context.Context, msg string, args ...interface{}) {
 	if l.level >= gormlogger.Error {
 		l.zap.Sugar().Errorf(msg, args...)
 	}
 }
-
-func (l *zapGORMLogger) Trace(_ context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
+func (l *zapGORMLogger) Trace(_ context.Context, begin time.Time, fc func() (string, int64), err error) {
 	if l.level <= gormlogger.Silent {
 		return
 	}
-
 	elapsed := time.Since(begin)
 	sql, rows := fc()
-
-	fields := []zap.Field{
-		zap.Duration("elapsed", elapsed),
-		zap.Int64("rows", rows),
-		zap.String("sql", sql),
-	}
-
+	fields := []zap.Field{zap.Duration("elapsed", elapsed), zap.Int64("rows", rows), zap.String("sql", sql)}
 	switch {
 	case err != nil && !(l.skipErrRecordNotFound && isNotFound(err)):
-		// Error query
 		l.zap.Error("Query error", append(fields, zap.Error(err))...)
-
 	case elapsed > l.slowThreshold && l.slowThreshold > 0:
-		// Slow query — selalu di-log sebagai warning, terlepas dari level config
-		l.zap.Warn("🐢 Slow query terdeteksi",
-			append(fields, zap.Duration("threshold", l.slowThreshold))...)
-
+		l.zap.Warn("Slow query", append(fields, zap.Duration("threshold", l.slowThreshold))...)
 	case l.level >= gormlogger.Info:
-		// Normal query — hanya di-log jika log_queries: true
 		l.zap.Debug("Query", fields...)
 	}
 }
-
-// isNotFound memeriksa apakah error adalah gorm.ErrRecordNotFound.
-// Kita tidak import gorm di sini untuk menghindari circular — cukup cek string.
 func isNotFound(err error) bool {
 	return err != nil && err.Error() == "record not found"
 }

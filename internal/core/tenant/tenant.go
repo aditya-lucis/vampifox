@@ -84,12 +84,12 @@ type Settings map[string]any
 // Disimpan di schema sistem (vfx_system.tenants), bukan di schema tenant itu sendiri.
 type Tenant struct {
 	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	Slug       string     `gorm:"uniqueIndex;not null;size:100"`
+	TenantSlug string     `gorm:"column:slug;uniqueIndex;not null;size:100"`
 	Name       string     `gorm:"not null;size:255"`
 	Domain     string     `gorm:"uniqueIndex;size:255"` // custom domain opsional, e.g. "erp.pt-maju.com"
 	Plan       Plan       `gorm:"not null;default:'starter'"`
 	Status     Status     `gorm:"not null;default:'active'"`
-	SchemaName string     `gorm:"not null;size:100"` // nama schema DB, e.g. "vfx_pt_maju_jaya"
+	TenantSchema string   `gorm:"column:schema_name;not null;size:100"` // nama schema DB, e.g. "vfx_pt_maju_jaya"
 	MaxUsers   int        `gorm:"not null;default:10"`
 	StorageGB  int        `gorm:"not null;default:5"`
 	Settings   Settings   `gorm:"serializer:json"`
@@ -160,9 +160,14 @@ func (t *Tenant) SetSetting(key string, val any) {
 // ─ Implements fangs.TenantScope interface ─────────────────────────
 
 // Slug mengembalikan slug tenant — memenuhi fangs.TenantScope.
-func (t *Tenant) SlugStr() string { return t.Slug }
+// Slug memenuhi fangs.TenantScope dan user.TenantScope.
+func (t *Tenant) Slug() string { return t.TenantSlug }
 
-// SchemaName sudah ada sebagai field — fangs.TenantScope terpenuhi.
+// SchemaNameStr memenuhi fangs.TenantScope dan user.TenantScope.
+// Dipisah dari field SchemaName agar *Tenant bisa dipakai langsung.
+func (t *Tenant) SchemaName() string { return t.TenantSchema }
+
+
 
 // ═══════════════════════════════════════════════════════════════
 //  CreateTenantInput — input untuk membuat tenant baru

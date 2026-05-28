@@ -1,6 +1,7 @@
 package den
 
 import (
+	"github.com/aditya-lucis/vampifox/internal/config"
 	"context"
 	"testing"
 	"time"
@@ -37,11 +38,11 @@ func (m *mockModule) Shutdown(_ context.Context) error {
 func newTestDen(t *testing.T) *Den {
 	t.Helper()
 	cfg := &VampConfig{
-		App:    AppConfig{Name: "TestFox", Env: "development", Timezone: "Asia/Jakarta"},
-		Server: ServerConfig{Host: "127.0.0.1", Port: 0, ShutdownTimeout: 5 * time.Second},
-		Fangs:  FangsConfig{Driver: DBDriverSQLite, SQLitePath: ":memory:"},
-		Log:    LogConfig{Level: "error", Format: "console", Output: "stdout"},
-		Sanctum: SanctumConfig{
+		App:    config.AppConfig{Name: "TestFox", Env: "development", Timezone: "Asia/Jakarta"},
+		Server: config.ServerConfig{Host: "127.0.0.1", Port: 0, ShutdownTimeout: 5 * time.Second},
+		Fangs:  config.FangsConfig{Driver: config.DBDriverSQLite, SQLitePath: ":memory:"},
+		Log:    config.LogConfig{Level: "error", Format: "console", Output: "stdout"},
+		Sanctum: config.SanctumConfig{
 			AccessSecret:  "test-access-secret-32-characters!",
 			RefreshSecret: "test-refresh-secret-32-characters!",
 		},
@@ -174,11 +175,11 @@ func TestDen_Logger_Accessor(t *testing.T) {
 }
 
 func TestFangsConfig_Validate_AllDrivers(t *testing.T) {
-	validCases := []FangsConfig{
-		{Driver: DBDriverPostgres, Host: "localhost", User: "u", DBName: "db"},
-		{Driver: DBDriverMySQL, Host: "localhost", User: "u", DBName: "db"},
-		{Driver: DBDriverSQLServer, Host: "localhost", User: "u", DBName: "db"},
-		{Driver: DBDriverSQLite, SQLitePath: ":memory:"},
+	validCases := []config.FangsConfig{
+		{Driver: config.DBDriverPostgres, Host: "localhost", User: "u", DBName: "db"},
+		{Driver: config.DBDriverMySQL, Host: "localhost", User: "u", DBName: "db"},
+		{Driver: config.DBDriverSQLServer, Host: "localhost", User: "u", DBName: "db"},
+		{Driver: config.DBDriverSQLite, SQLitePath: ":memory:"},
 	}
 
 	for _, cfg := range validCases {

@@ -1,5 +1,5 @@
 # VampiFox Makefile — "Mantra untuk membangunkan kerajaan"
-.PHONY: help awaken build test test-cover lint docker-up docker-down docker-build tidy
+.PHONY: help awaken slumber build test migrate foxctl lint
 
 BINARY=vampifox
 VERSION=$(shell git describe --tags --always 2>/dev/null || echo "0.1.0-nightfall")
@@ -27,6 +27,16 @@ test-cover: test ## Test + tampilkan coverage
 lint: ## Linting kode
 	golangci-lint run ./...
 
+migrate-up: ## Jalankan migrasi database ke atas
+	@echo "📜 Menerapkan gulungan perjanjian baru..."
+	go run ./cmd/foxctl migrate up
+
+migrate-down: ## Rollback migrasi terakhir
+	go run ./cmd/foxctl migrate down
+
+migrate-create: ## Buat file migrasi baru: make migrate-create NAME=add_users
+	go run ./cmd/foxctl migrate create $(NAME)
+
 docker-up: ## Jalankan stack development dengan Docker
 	@echo "🏰 Membangun kerajaan lokal..."
 	docker compose -f deploy/docker/docker-compose.yml up -d
@@ -36,6 +46,9 @@ docker-down: ## Matikan stack development
 
 docker-build: ## Build Docker image
 	docker build -f deploy/docker/Dockerfile -t vampifox:$(VERSION) .
+
+foxctl: ## Build CLI tool foxctl
+	go build $(BUILD_FLAGS) -o bin/foxctl ./cmd/foxctl
 
 tidy: ## Bersihkan dependencies
 	go mod tidy

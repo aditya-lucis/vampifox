@@ -135,8 +135,8 @@ type Scope struct {
 // NewScope membuat Scope dari *Tenant.
 func NewScope(t *Tenant) *Scope {
 	return &Scope{
-		slug:       t.Slug,
-		schemaName: t.SchemaName,
+		slug:       t.TenantSlug,
+		schemaName: t.TenantSchema,
 	}
 }
 

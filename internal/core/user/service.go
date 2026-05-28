@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -226,3 +227,6 @@ func (s *Service) RevokeRole(ctx context.Context, userID, role string) error {
 	u.RemoveRole(role)
 	return s.repo.Update(ctx, u)
 }
+
+// suppress unused import
+var _ = time.Now

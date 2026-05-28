@@ -1,14 +1,4 @@
 // Package den — Sarang utama VampiFox.
-//
-// Den adalah dependency injection container sekaligus lifecycle manager.
-// Semua service (database, cache, logger, modules) lahir dan mati di sini.
-//
-// Alur hidup Den:
-//
-//	NewDen()  → load config, init logger
-//	Awaken()  → init semua service, jalankan HTTP server
-//	<running> → terima request, proses, respond
-//	Slumber() → graceful shutdown, tutup semua koneksi
 package den
 
 import (
@@ -22,79 +12,39 @@ import (
 	"go.uber.org/zap"
 )
 
-// Version VampiFox — di-inject saat build via ldflags.
+// Version di-inject saat build via ldflags.
 var Version = "0.1.0-nightfall"
 
-// ═══════════════════════════════════════════════════════════════
-//  Module Interface
-// ═══════════════════════════════════════════════════════════════
+// ── Module Interface ──────────────────────────────────────────────
 
 // Module adalah kontrak yang harus dipenuhi setiap module VampiFox.
-// Baik module bawaan (accounting, inventory) maupun module custom
-// harus mengimplementasikan interface ini.
 type Module interface {
-	// Name mengembalikan identifier unik module, e.g. "accounting".
-	// Digunakan untuk dependency resolution dan logging.
 	Name() string
-
-	// Version mengembalikan versi module dalam format semver, e.g. "1.0.0".
 	Version() string
-
-	// DependsOn mengembalikan daftar nama module yang harus sudah terdaftar
-	// sebelum module ini bisa diinisialisasi.
-	// Kembalikan nil atau slice kosong jika tidak ada dependency.
 	DependsOn() []string
-
-	// Boot dipanggil saat Den.Awaken() — tempat module mendaftarkan
-	// route, listener event, dan resource lainnya.
-	// ctx yang diberikan akan di-cancel saat Slumber() dipanggil.
 	Boot(ctx context.Context, d *Den) error
-
-	// Shutdown dipanggil saat Den.Slumber() untuk membersihkan resource.
-	// Implementasi harus selesai sebelum ctx deadline habis.
 	Shutdown(ctx context.Context) error
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Den
-// ═══════════════════════════════════════════════════════════════
+// ── Den ───────────────────────────────────────────────────────────
 
-// Den adalah jantung VampiFox.
-//
-// Jangan membuat Den langsung — gunakan NewDen().
-// Jangan menyimpan Den sebagai field di struct module —
-// gunakan parameter yang diberikan di Module.Boot().
+// Den adalah DI container dan lifecycle manager VampiFox.
 type Den struct {
-	cfg     *VampConfig
-	logger  *zap.Logger
-	modules []Module          // urutan registrasi dipertahankan
-	modMap  map[string]Module // lookup cepat by name
-	server  *http.Server
+	cfg      *VampConfig
+	logger   *zap.Logger
+	modules  []Module
+	modMap   map[string]Module
+	services *Services
+	server   *http.Server
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Constructor
-// ═══════════════════════════════════════════════════════════════
-
-// NewDen membuat instance Den baru dari file konfigurasi.
-//
-// configPath boleh kosong — Den akan mencari vampifox.yaml di
-// ./configs, ., atau /etc/vampifox secara berurutan.
-//
-// Contoh:
-//
-//	d, err := den.NewDen("")                           // auto-discover
-//	d, err := den.NewDen("configs/vampifox.yaml")      // eksplisit
-//	d, err := den.NewDen(os.Getenv("VAMPIFOX_CONFIG")) // dari env
+// NewDen membuat instance Den baru.
 func NewDen(configPath string) (*Den, error) {
-	// ── Load config ───────────────────────────────────────────────
 	cfg, err := LoadConfig(configPath)
 	if err != nil {
-		// Config belum ada logger, pakai fmt langsung
 		return nil, fmt.Errorf("VampiFox gagal memuat konfigurasi: %w", err)
 	}
 
-	// ── Init logger ───────────────────────────────────────────────
 	logger, err := buildLogger(cfg.Log)
 	if err != nil {
 		return nil, fmt.Errorf("VampiFox gagal menginisialisasi logger: %w", err)
@@ -106,50 +56,25 @@ func NewDen(configPath string) (*Den, error) {
 		modMap: make(map[string]Module),
 	}
 
-	logger.Info("🦊🧛 Den terbuka",
+	logger.Info("[VampiFox] Den terbuka",
 		zap.String("version", Version),
 		zap.String("env", cfg.App.Env),
-		zap.String("config", configPath),
 	)
-
 	return d, nil
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Module Registration
-// ═══════════════════════════════════════════════════════════════
-
 // RegisterModules mendaftarkan satu atau lebih module ke Den.
-//
-// Urutan registrasi penting — module yang didaftarkan lebih awal
-// akan di-boot lebih awal. Pastikan module dependency didaftarkan
-// sebelum module yang bergantung padanya.
-//
-// Contoh:
-//
-//	d.RegisterModules(
-//	    accounting.New(),
-//	    inventory.New(),
-//	    myCustomModule.New(),
-//	)
 func (d *Den) RegisterModules(modules ...Module) error {
 	for _, m := range modules {
 		name := m.Name()
-
 		if name == "" {
 			return fmt.Errorf("[Den] module dengan Name() kosong tidak bisa didaftarkan")
 		}
-
 		if _, exists := d.modMap[name]; exists {
-			return fmt.Errorf(
-				"[Den] module '%s' sudah terdaftar. Setiap module hanya boleh didaftarkan sekali",
-				name,
-			)
+			return fmt.Errorf("[Den] module '%s' sudah terdaftar", name)
 		}
-
 		d.modules = append(d.modules, m)
 		d.modMap[name] = m
-
 		d.logger.Debug("Module terdaftar",
 			zap.String("module", name),
 			zap.String("version", m.Version()),
@@ -158,41 +83,34 @@ func (d *Den) RegisterModules(modules ...Module) error {
 	return nil
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Awaken — Start
-// ═══════════════════════════════════════════════════════════════
-
-// Awaken membangunkan VampiFox — menginisialisasi semua service
-// dan menjalankan HTTP server.
-//
-// Awaken bersifat blocking. Ia akan return hanya ketika:
-//   - ctx di-cancel (biasanya oleh sinyal OS SIGINT/SIGTERM)
-//   - Terjadi error fatal
-//
-// Setelah ctx di-cancel, Awaken secara otomatis memanggil Slumber()
-// untuk graceful shutdown sebelum return.
+// Awaken membangunkan VampiFox — init services, boot modules, start server.
 func (d *Den) Awaken(ctx context.Context) error {
-	d.logger.Info("🌙 VampiFox sedang terbangun...",
+	d.logger.Info("[VampiFox] Sedang terbangun...",
 		zap.String("addr", d.cfg.Server.Addr()),
 		zap.Int("modules", len(d.modules)),
 	)
 
-	// ── Validasi config kritis ────────────────────────────────────
 	if err := d.validateConfig(); err != nil {
 		return err
 	}
 
-	// ── Timezone ─────────────────────────────────────────────────
-	if err := d.setTimezone(); err != nil {
-		d.logger.Warn("Gagal set timezone, pakai UTC", zap.Error(err))
+	if tz := d.cfg.App.Timezone; tz != "" {
+		_ = os.Setenv("TZ", tz)
 	}
 
-	// ── Resolve module dependencies ───────────────────────────────
+	// Wire semua core services
+	svc, err := d.wire()
+	if err != nil {
+		return fmt.Errorf("[Den] gagal wire services: %w", err)
+	}
+	d.services = svc
+
+	// Resolve module dependencies
 	if err := d.resolveDependencies(); err != nil {
 		return err
 	}
 
-	// ── Boot semua module ─────────────────────────────────────────
+	// Boot semua module
 	for _, m := range d.modules {
 		d.logger.Info("Booting module",
 			zap.String("module", m.Name()),
@@ -203,17 +121,20 @@ func (d *Den) Awaken(ctx context.Context) error {
 		}
 	}
 
-	// ── HTTP Server ───────────────────────────────────────────────
+	// Setup HTTP server — router dibuat di sini tanpa import rest package
+	// Router di-build via builder function yang di-set dari luar
+	mux := d.buildRouter()
+
 	d.server = &http.Server{
 		Addr:         d.cfg.Server.Addr(),
+		Handler:      mux,
 		ReadTimeout:  d.cfg.Server.ReadTimeout,
 		WriteTimeout: d.cfg.Server.WriteTimeout,
 	}
 
-	// Jalankan server di goroutine terpisah
 	serverErr := make(chan error, 1)
 	go func() {
-		d.logger.Info("🦊 VampiFox siap melayani",
+		d.logger.Info("[VampiFox] Siap melayani",
 			zap.String("addr", d.cfg.Server.Addr()),
 		)
 		if err := d.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -221,139 +142,91 @@ func (d *Den) Awaken(ctx context.Context) error {
 		}
 	}()
 
-	// ── Tunggu sinyal shutdown atau error ─────────────────────────
 	select {
 	case <-ctx.Done():
-		d.logger.Info("🌅 Sinyal shutdown diterima — VampiFox bersiap tidur...")
+		d.logger.Info("[VampiFox] Sinyal shutdown diterima...")
 	case err := <-serverErr:
-		d.logger.Error("HTTP server berhenti karena error", zap.Error(err))
 		return err
 	}
 
 	return d.Slumber()
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Slumber — Graceful Shutdown
-// ═══════════════════════════════════════════════════════════════
-
-// Slumber mematikan VampiFox secara graceful.
-//
-// Urutan shutdown (kebalikan dari boot):
-//  1. HTTP server berhenti menerima request baru
-//  2. Tunggu request yang sedang berjalan selesai
-//  3. Shutdown setiap module (urutan terbalik dari registrasi)
+// Slumber graceful shutdown.
 func (d *Den) Slumber() error {
-	d.logger.Info("😴 VampiFox masuk Slumber...")
+	d.logger.Info("[VampiFox] Masuk Slumber...")
 
-	shutdownTimeout := d.cfg.Server.ShutdownTimeout
-	if shutdownTimeout == 0 {
-		shutdownTimeout = 15 * time.Second
+	timeout := d.cfg.Server.ShutdownTimeout
+	if timeout == 0 {
+		timeout = 15 * time.Second
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// ── Stop HTTP server ──────────────────────────────────────────
 	if d.server != nil {
 		if err := d.server.Shutdown(ctx); err != nil {
 			d.logger.Warn("HTTP server shutdown tidak bersih", zap.Error(err))
-		} else {
-			d.logger.Debug("HTTP server berhasil dimatikan")
 		}
 	}
 
-	// ── Shutdown modules (urutan terbalik) ────────────────────────
-	var shutdownErrors []error
 	for i := len(d.modules) - 1; i >= 0; i-- {
 		m := d.modules[i]
-		d.logger.Debug("Shutdown module", zap.String("module", m.Name()))
 		if err := m.Shutdown(ctx); err != nil {
-			shutdownErrors = append(shutdownErrors, fmt.Errorf("module '%s': %w", m.Name(), err))
-			d.logger.Warn("Module shutdown dengan error",
+			d.logger.Warn("Module shutdown error",
 				zap.String("module", m.Name()),
 				zap.Error(err),
 			)
 		}
 	}
 
-	// ── Flush logger ──────────────────────────────────────────────
-	d.logger.Info("🧛 VampiFox tertidur. Sampai malam berikutnya.")
-	_ = d.logger.Sync() // best-effort
-
-	if len(shutdownErrors) > 0 {
-		return fmt.Errorf("[Den] %d module gagal shutdown: %v", len(shutdownErrors), shutdownErrors)
+	if d.services != nil {
+		if err := d.services.Fangs.Close(); err != nil {
+			d.logger.Warn("Fangs close error", zap.Error(err))
+		}
+		if err := d.services.Shadow.Close(); err != nil {
+			d.logger.Warn("Shadow close error", zap.Error(err))
+		}
 	}
+
+	d.logger.Info("[VampiFox] Tertidur. Sampai malam berikutnya.")
+	_ = d.logger.Sync()
 	return nil
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Accessors — getter untuk dipakai module
-// ═══════════════════════════════════════════════════════════════
+// ── Accessors ─────────────────────────────────────────────────────
 
-// Config mengembalikan VampConfig yang sudah di-load.
-// Module bisa mengakses config via d.Config() saat Boot().
-func (d *Den) Config() *VampConfig { return d.cfg }
+func (d *Den) Config() *VampConfig     { return d.cfg }
+func (d *Den) Logger() *zap.Logger     { return d.logger }
+func (d *Den) GetServices() *Services  { return d.services }
 
-// Logger mengembalikan zap.Logger utama VampiFox.
-// Module sebaiknya membuat child logger:
-//
-//	log := d.Logger().Named("accounting")
-func (d *Den) Logger() *zap.Logger { return d.logger }
-
-// Module mencari module yang sudah terdaftar berdasarkan nama.
-// Berguna untuk module yang ingin berinteraksi dengan module lain.
-//
-//	invMod, ok := d.Module("inventory")
 func (d *Den) Module(name string) (Module, bool) {
 	m, ok := d.modMap[name]
 	return m, ok
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Internal helpers
-// ═══════════════════════════════════════════════════════════════
+// ── Internal helpers ──────────────────────────────────────────────
 
-// validateConfig memeriksa konfigurasi kritis sebelum Awaken.
 func (d *Den) validateConfig() error {
-	// Validasi Fangs
 	if err := d.cfg.Fangs.Validate(); err != nil {
 		return err
 	}
-
-	// Sanctum hanya wajib ketat di production
 	if d.cfg.App.IsProduction() {
 		if err := d.cfg.Sanctum.Validate(); err != nil {
 			return err
 		}
-	} else if d.cfg.App.IsDevelopment() {
-		// Di dev, warn saja jika masih pakai default secret
-		if len(d.cfg.Sanctum.AccessSecret) < 8 {
-			d.logger.Warn("[Sanctum] access_secret terlalu pendek — OK untuk development, JANGAN di production")
-		}
 	}
-
 	return nil
 }
 
-// setTimezone mengatur timezone process sesuai config.
-func (d *Den) setTimezone() error {
-	tz := d.cfg.App.Timezone
-	if tz == "" {
-		return nil
-	}
-	return os.Setenv("TZ", tz)
-}
-
-// resolveDependencies memastikan semua dependency module tersedia.
 func (d *Den) resolveDependencies() error {
 	for _, m := range d.modules {
 		for _, dep := range m.DependsOn() {
 			if _, ok := d.modMap[dep]; !ok {
 				return fmt.Errorf(
-					"[Den] module '%s' membutuhkan module '%s', tapi '%s' belum didaftarkan.\n"+
+					"[Den] module '%s' membutuhkan '%s' yang belum terdaftar.\n"+
 						"Tambahkan %s.New() ke RegisterModules() SEBELUM %s.New().",
-					m.Name(), dep, dep, dep, m.Name(),
+					m.Name(), dep, dep, m.Name(),
 				)
 			}
 		}

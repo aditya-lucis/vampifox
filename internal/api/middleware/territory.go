@@ -29,7 +29,7 @@ func Territory(resolver *tenant.Resolver, logger *zap.Logger) gin.HandlerFunc {
 		result, err := resolver.Resolve(c.Request.Context(), c.Request)
 		if err != nil {
 			status, code, msg := tenantErrToHTTP(err)
-			logger.Debug("Territory: the tenant not found",
+			logger.Debug("Territory: tenant tidak ditemukan",
 				zap.String("host", c.Request.Host),
 				zap.String("header", c.GetHeader("X-VampiFox-Tenant")),
 				zap.Error(err),
@@ -41,10 +41,10 @@ func Territory(resolver *tenant.Resolver, logger *zap.Logger) gin.HandlerFunc {
 		// Inject tenant ke context
 		ctx := tenant.WithTenant(c.Request.Context(), result.Tenant)
 		c.Request = c.Request.WithContext(ctx)
-		c.Set(KeyTenantSlug, result.Tenant.Slug)
+		c.Set(KeyTenantSlug, result.Tenant.TenantSlug)
 
 		logger.Debug("Territory: tenant ditemukan",
-			zap.String("slug", result.Tenant.Slug),
+			zap.String("slug", result.Tenant.TenantSlug),
 			zap.String("strategy", result.Strategy),
 		)
 

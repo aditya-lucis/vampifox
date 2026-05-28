@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aditya-lucis/vampifox/internal/fangs"
 	"go.uber.org/zap"
+
+	"github.com/aditya-lucis/vampifox/internal/fangs"
 )
 
 // ═══════════════════════════════════════════════════════════════
@@ -79,12 +80,12 @@ func (s *Service) Provision(ctx context.Context, input CreateInput) (*Tenant, er
 
 	// ── Buat Tenant record ────────────────────────────────────────
 	tenant := &Tenant{
-		Slug:       input.Slug,
+		TenantSlug: input.Slug,
 		Name:       input.Name,
 		Domain:     input.Domain,
 		Plan:       input.Plan,
 		Status:     StatusActive,
-		SchemaName: SchemaNameFor(input.Slug),
+		TenantSchema: SchemaNameFor(input.Slug),
 		MaxUsers:   maxUsers,
 		StorageGB:  storageGB,
 		Settings:   make(Settings),
@@ -95,20 +96,20 @@ func (s *Service) Provision(ctx context.Context, input CreateInput) (*Tenant, er
 	}
 
 	// ── Buat schema database ──────────────────────────────────────
-	if err := s.fangs.CreateTenantSchema(ctx, tenant.SchemaName); err != nil {
+	if err := s.fangs.CreateTenantSchema(ctx, tenant.TenantSchema); err != nil {
 		// Schema gagal dibuat — log sebagai warning tapi jangan rollback tenant record.
 		// Admin bisa retry provisioning schema via foxctl.
 		s.logger.Error("Gagal membuat schema tenant — tenant tersimpan tapi schema belum ada",
-			zap.String("slug", tenant.Slug),
-			zap.String("schema", tenant.SchemaName),
+			zap.String("slug", tenant.TenantSlug),
+			zap.String("schema", tenant.TenantSchema),
 			zap.Error(err),
 		)
 		return tenant, fmt.Errorf("tenant dibuat tapi schema gagal: %w", err)
 	}
 
 	s.logger.Info("Tenant berhasil di-provision",
-		zap.String("slug", tenant.Slug),
-		zap.String("schema", tenant.SchemaName),
+		zap.String("slug", tenant.TenantSlug),
+		zap.String("schema", tenant.TenantSchema),
 		zap.String("plan", string(tenant.Plan)),
 	)
 

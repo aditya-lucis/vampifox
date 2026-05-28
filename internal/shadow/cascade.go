@@ -15,9 +15,9 @@
 //  1. Developer mendaftarkan dependency via RegisterDeps():
 //
 //     cascade.RegisterDeps("invoice", []string{
-//     "customer:*:invoices",
-//     "report:ar:*",
-//     "dashboard:finance",
+//         "customer:*:invoices",
+//         "report:ar:*",
+//         "dashboard:finance",
 //     })
 //
 //  2. Saat invoice diupdate, panggil Invalidate():
@@ -33,6 +33,7 @@
 package shadow
 
 import (
+	"errors"
 	"context"
 	"strings"
 	"sync"
@@ -149,7 +150,7 @@ func (c *Cascade) Invalidate(ctx context.Context, ts *TenantShadow, entityType, 
 			err = ts.Vanish(ctx, resolved)
 			if err == nil {
 				deleted = 1
-			} else if err == ErrNotFound {
+			} else if errors.Is(err, ErrNotFound) {
 				// Key tidak ada di cache — bukan error, lanjut saja
 				err = nil
 				deleted = 0

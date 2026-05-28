@@ -123,10 +123,10 @@ type Grant struct {
 	// TargetType menentukan apakah grant ini untuk role atau user spesifik
 	TargetType GrantTargetType `gorm:"not null"`
 	// TargetID adalah role name atau user UUID
-	TargetID   string     `gorm:"not null;index"`
-	Permission Permission `gorm:"not null"`
+	TargetID   string         `gorm:"not null;index"`
+	Permission Permission     `gorm:"not null"`
 	// Deny jika true, permission ini justru dicabut (explicit deny)
-	Deny bool `gorm:"default:false"`
+	Deny       bool           `gorm:"default:false"`
 }
 
 // GrantTargetType tipe target grant.

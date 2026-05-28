@@ -1,4 +1,4 @@
-# VampiFox - Windows First-Time Setup
+﻿# VampiFox - Windows First-Time Setup
 # Jalankan SEKALI sebagai Administrator
 # Usage: .\scripts\setup-windows.ps1
 

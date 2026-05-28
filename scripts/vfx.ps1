@@ -1,3 +1,6 @@
+﻿# VampiFox CLI Script - PowerShell Edition
+# Usage: .\scripts\vfx.ps1 <command> [arg]
+
 param(
     [Parameter(Position=0)]
     [string]$Command = "help",

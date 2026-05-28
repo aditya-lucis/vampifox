@@ -24,12 +24,12 @@ import (
 // ═══════════════════════════════════════════════════════════════
 
 var (
-	ErrNotFound      = errors.New("user tidak ditemukan")
-	ErrEmailTaken    = errors.New("email sudah digunakan")
-	ErrInvalidEmail  = errors.New("format email tidak valid")
-	ErrWeakPassword  = errors.New("password terlalu lemah")
-	ErrWrongPassword = errors.New("password salah")
-	ErrInactive      = errors.New("akun user tidak aktif")
+	ErrNotFound       = errors.New("user tidak ditemukan")
+	ErrEmailTaken     = errors.New("email sudah digunakan")
+	ErrInvalidEmail   = errors.New("format email tidak valid")
+	ErrWeakPassword   = errors.New("password terlalu lemah")
+	ErrWrongPassword  = errors.New("password salah")
+	ErrInactive       = errors.New("akun user tidak aktif")
 )
 
 // ═══════════════════════════════════════════════════════════════
@@ -52,18 +52,18 @@ const (
 // User merepresentasikan satu akun di dalam sebuah tenant.
 // Disimpan di schema tenant (bukan schema sistem).
 type User struct {
-	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	Email        string    `gorm:"uniqueIndex;not null;size:255"`
-	PasswordHash string    `gorm:"not null;size:255"`
-	FullName     string    `gorm:"not null;size:255"`
-	Avatar       string    `gorm:"size:500"`
-	Status       Status    `gorm:"not null;default:'active'"`
+	ID           uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	Email        string     `gorm:"uniqueIndex;not null;size:255"`
+	PasswordHash string     `gorm:"not null;size:255"`
+	FullName     string     `gorm:"not null;size:255"`
+	Avatar       string     `gorm:"size:500"`
+	Status       Status     `gorm:"not null;default:'active'"`
 	// Roles disimpan sebagai JSON array, e.g. ["elder_vampire", "daywalker"]
-	Roles []string `gorm:"serializer:json"`
+	Roles        []string   `gorm:"serializer:json"`
 	// LastLoginAt nil artinya belum pernah login
-	LastLoginAt *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	LastLoginAt  *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // TableName — disimpan di schema tenant.

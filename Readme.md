@@ -1,18 +1,11 @@
 <div align="center">
 
-<img src="assets/img/vampifox.jpg" alt="VampiFox Golang ERP Framework Logo" width="400" />
-
-# 🦊🧛 VampiFox ERP Framework - Modern Golang Open Source ERP
+# 🦊🧛 VampiFox ERP Framework
 
 **"The Night Never Sleeps, The Fox Never Rests"**
 
-VampiFox is a high-performance, modular, and open-source **Enterprise Resource Planning (ERP) framework** built on **Golang**. Designed to build scalable business management systems, VampiFox provides out-of-the-box multi-tenancy, robust RBAC, and microservices-ready architecture.
-
-### 💡 The Core Philosophy
-
-Our ERP framework is driven by a unique dual-character architecture:
-* 🦊 **The Fox:** Clever, agile, and adaptive — the foundation for a nimble, modular business architecture (HRM, CRM, Accounting, Inventory).
-* 🧛 **The Vampire:** Immortal, powerful, and data-hungry — the pillar for a *persistent*, highly concurrent, and *data-driven* enterprise backend system.
+ERP Framework modern berbasis **Golang** — cepat, modular, dan multi-tenant.  
+Terinspirasi dari ERPNext & Odoo, dibangun dengan karakter sendiri.
 
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-purple)](LICENSE)
@@ -22,42 +15,30 @@ Our ERP framework is driven by a unique dual-character architecture:
 
 ---
 
-## 🌟 Key Features
-
-VampiFox is designed to be the ultimate Golang ERP starter kit for developers and enterprises:
-* **True Multi-Tenancy:** Securely isolate data for multiple companies or branches within a single database instance.
-* **Modular ERP Modules:** Pre-structured domains for Accounting, Inventory, Purchasing, Sales, HRM, CRM, and Project Management.
-* **Dual API Support:** Fully equipped with both REST API (Gin) and GraphQL (gqlgen) endpoints.
-* **Advanced RBAC (Role-Based Access Control):** Granular permission management from the Tenant Owner (Overlord) down to the Auditor (Spectre).
-* **High Performance:** Powered by Go 1.23+, PostgreSQL, Redis caching, and NATS JetStream for event-driven messaging.
-
----
-
 ## 🚀 Quick Start (Windows)
 
-### 1. First Time — Run the Setup Wizard
+### 1. Pertama kali — jalankan setup wizard
 
 ```powershell
-# Open PowerShell as Administrator
+# Buka PowerShell sebagai Administrator
 .\scripts\setup-windows.ps1
-
 ```
 
-This script automatically installs: **Go**, **Git**, **Docker Desktop**, **VS Code**, and required extensions.
+Script ini otomatis menginstall: **Go**, **Git**, **Docker Desktop**, **VS Code**, dan extension yang dibutuhkan.
 
-### 2. Check All Dependencies
+### 2. Cek semua dependency
 
 ```powershell
 .\scripts\vfx.ps1 check
 ```
 
-### 3. Start the Development Stack (PostgreSQL, Redis, MinIO, etc.)
+### 3. Nyalakan stack development (PostgreSQL, Redis, MinIO, dll)
 
 ```powershell
 .\scripts\vfx.ps1 docker-up
 ```
 
-### 4. Awaken VampiFox!
+### 4. Bangunkan VampiFox!
 
 ```powershell
 .\scripts\vfx.ps1 awaken
@@ -65,34 +46,34 @@ This script automatically installs: **Go**, **Git**, **Docker Desktop**, **VS Co
 
 ---
 
-## 📋 All Commands (`vfx.ps1`)
+## 📋 Semua Perintah (`vfx.ps1`)
 
-| Command | Function |
-|---------|----------|
-| `vfx.ps1 help` | Display all commands |
-| `vfx.ps1 awaken` | Run server (dev mode) |
+| Perintah | Fungsi |
+|----------|--------|
+| `vfx.ps1 help` | Tampilkan semua perintah |
+| `vfx.ps1 awaken` | Jalankan server (dev mode) |
 | `vfx.ps1 build` | Build `vampifox.exe` |
 | `vfx.ps1 build-foxctl` | Build `foxctl.exe` (CLI tool) |
-| `vfx.ps1 test` | Run all tests |
-| `vfx.ps1 test-cover` | Test + open coverage report |
-| `vfx.ps1 docker-up` | Start dev stack |
-| `vfx.ps1 docker-down` | Stop dev stack |
-| `vfx.ps1 migrate-up` | Run DB migrations |
-| `vfx.ps1 migrate-down` | Rollback migrations |
-| `vfx.ps1 migrate-create add_users` | Create new migration file |
-| `vfx.ps1 check` | Check all dependencies |
+| `vfx.ps1 test` | Jalankan semua test |
+| `vfx.ps1 test-cover` | Test + buka laporan coverage |
+| `vfx.ps1 docker-up` | Nyalakan stack dev |
+| `vfx.ps1 docker-down` | Matikan stack dev |
+| `vfx.ps1 migrate-up` | Jalankan migrasi DB |
+| `vfx.ps1 migrate-down` | Rollback migrasi |
+| `vfx.ps1 migrate-create add_users` | Buat file migrasi baru |
+| `vfx.ps1 check` | Cek semua dependency |
 
-> **Tip:** You can also use `vfx.bat` from regular CMD — same result.
+> **Tip:** Bisa juga pakai `vfx.bat` dari CMD biasa — hasilnya sama.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Arsitektur
 
 ```
 vampifox/
 ├── cmd/
-│   ├── vampifox/        # Main server entry point
-│   └── foxctl/          # CLI tool (scaffold, migrate, etc.)
+│   ├── vampifox/        # Entry point server utama
+│   └── foxctl/          # CLI tool (scaffold, migrate, dll)
 │
 ├── internal/
 │   ├── den/             # 🏠 Dependency injection & lifecycle
@@ -100,28 +81,28 @@ vampifox/
 │   ├── shadow/          # 👤 Cache layer (Redis)
 │   ├── core/
 │   │   ├── tenant/      # Multi-tenancy engine
-│   │   ├── auth/        # JWT Sanctum (authentication)
+│   │   ├── auth/        # JWT Sanctum (autentikasi)
 │   │   ├── user/        # User management
 │   │   ├── rbac/        # Role-based access control
 │   │   └── audit/       # Audit trail
 │   ├── modules/
-│   │   ├── accounting/  # Accounting & finance
-│   │   ├── inventory/   # Stock management
-│   │   ├── purchasing/  # Purchasing
-│   │   ├── sales/       # Sales
-│   │   ├── hrm/         # HR & payroll
-│   │   ├── crm/         # Customer management
-│   │   ├── project/     # Project management
-│   │   └── assets/      # Fixed assets
+│   │   ├── accounting/  # Akuntansi & keuangan
+│   │   ├── inventory/   # Manajemen stok
+│   │   ├── purchasing/  # Pembelian
+│   │   ├── sales/       # Penjualan
+│   │   ├── hrm/         # SDM & penggajian
+│   │   ├── crm/         # Manajemen pelanggan
+│   │   ├── project/     # Manajemen proyek
+│   │   └── assets/      # Aset tetap
 │   └── api/
 │       ├── rest/v1/     # REST API
 │       ├── graphql/     # GraphQL API
 │       ├── webhook/     # Webhook handler
-│       └── middleware/  # Bloodgate (auth), Covenant (rbac), etc.
+│       └── middleware/  # Bloodgate (auth), Covenant (rbac), dll
 │
 ├── pkg/
-│   ├── foxutil/         # Common utilities
-│   ├── bloodtype/       # Shared type definitions
+│   ├── foxutil/         # Utilities umum
+│   ├── bloodtype/       # Type definitions bersama
 │   ├── nightvision/     # Logging & observability
 │   └── moonphase/       # Scheduler
 │
@@ -138,17 +119,17 @@ vampifox/
 
 ---
 
-## 🧛 VampiFox Glossary
+## 🧛 Kamus Istilah VampiFox
 
-| Term | Technical Meaning |
-|------|-------------------|
+| Istilah | Arti Teknis |
+|---------|-------------|
 | **Den** | DI Container & lifecycle manager |
-| **Fangs** | Database connection (PostgreSQL) |
+| **Fangs** | Koneksi database (PostgreSQL) |
 | **Shadow** | Cache layer (Redis) |
 | **Sanctum** | JWT auth manager |
 | **Bloodgate** | Auth middleware |
 | **Covenant** | RBAC middleware |
-| **Overlord** | Role: tenant owner |
+| **Overlord** | Role: pemilik tenant |
 | **Elder Vampire** | Role: admin |
 | **Daywalker** | Role: manager |
 | **Familiar** | Role: staff |
@@ -161,8 +142,8 @@ vampifox/
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|-------|------------|
+| Layer | Teknologi |
+|-------|-----------|
 | Language | **Go 1.23+** |
 | Web Framework | **Gin** |
 | ORM | **GORM** + PostgreSQL |
@@ -178,12 +159,12 @@ vampifox/
 
 ---
 
-## 📄 License
+## 📄 Lisensi
 
-MIT License — free to use, modify, and distribute.
+MIT License — bebas digunakan, dimodifikasi, dan didistribusikan.
 
 ---
 
 <div align="center">
-Made with ❤️ by Aditya Lucis, A Vampire Prince who lives in the shadow
+Made with 🧛🦊 by VampiFox Team
 </div>

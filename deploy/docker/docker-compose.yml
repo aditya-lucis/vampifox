@@ -1,17 +1,20 @@
 # VampiFox Local Development Stack
 # "Membangun kerajaan di mesin lokal"
+# Compatible: Windows (Docker Desktop + WSL2 backend)
 name: vampifox
 
 services:
-  # ─── VampiFox App ───────────────────────────────────────────
+  # ─── VampiFox App ─────────────────────────────────────────────
   vampifox:
     build:
       context: ../../
       dockerfile: deploy/docker/Dockerfile
+    platform: linux/amd64
     ports:
       - "8080:8080"
     environment:
       VAMPIFOX_CONFIG: /app/configs/vampifox.yaml
+      TZ: Asia/Jakarta
     volumes:
       - ../../configs:/app/configs:ro
     depends_on:
@@ -20,29 +23,38 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - vampifox-net
 
-  # ─── Fangs: PostgreSQL ──────────────────────────────────────
+  # ─── Fangs: PostgreSQL ────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
+    platform: linux/amd64
     environment:
       POSTGRES_USER: vampifox
       POSTGRES_PASSWORD: vampifox_dev
       POSTGRES_DB: vampifox_main
+      TZ: Asia/Jakarta
     ports:
       - "5432:5432"
     volumes:
       - fangs_data:/var/lib/postgresql/data
+      - ../../migrations/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vampifox"]
+      test: ["CMD-SHELL", "pg_isready -U vampifox -d vampifox_main"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - vampifox-net
 
-  # ─── Shadow: Redis ──────────────────────────────────────────
+  # ─── Shadow: Redis ────────────────────────────────────────────
   redis:
     image: redis:7-alpine
+    platform: linux/amd64
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes
     volumes:
       - shadow_data:/data
     healthcheck:
@@ -50,36 +62,54 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - vampifox-net
 
-  # ─── Storage: MinIO ─────────────────────────────────────────
+  # ─── Storage: MinIO ───────────────────────────────────────────
   minio:
     image: minio/minio:latest
+    platform: linux/amd64
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
-      - "9001:9001"
+      - "9001:9001"   # MinIO Console UI
     environment:
       MINIO_ROOT_USER: vampifox
       MINIO_ROOT_PASSWORD: vampifox_dev
     volumes:
       - minio_data:/data
+    networks:
+      - vampifox-net
 
-  # ─── Queue: NATS ────────────────────────────────────────────
+  # ─── Queue: NATS JetStream ────────────────────────────────────
   nats:
     image: nats:2-alpine
-    command: "--jetstream"
+    platform: linux/amd64
+    command: "--jetstream --http_port 8222"
     ports:
       - "4222:4222"
-      - "8222:8222"  # monitoring
+      - "8222:8222"   # NATS monitoring UI
+    networks:
+      - vampifox-net
 
-  # ─── Mail: Mailpit (dev only) ────────────────────────────────
+  # ─── Mail: Mailpit (dev only) ─────────────────────────────────
   mailpit:
     image: axllent/mailpit:latest
+    platform: linux/amd64
     ports:
       - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI
+      - "8025:8025"   # Web UI → http://localhost:8025
+    networks:
+      - vampifox-net
+
+networks:
+  vampifox-net:
+    driver: bridge
 
 volumes:
   fangs_data:
+    name: vampifox_fangs
   shadow_data:
+    name: vampifox_shadow
   minio_data:
+    name: vampifox_minio

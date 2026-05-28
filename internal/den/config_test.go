@@ -1,6 +1,7 @@
 package den
 
 import (
+	"github.com/aditya-lucis/vampifox/internal/config"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,34 +14,34 @@ func TestLoadConfig_FromFile(t *testing.T) {
 	cfgPath := filepath.Join(dir, "vampifox.yaml")
 
 	content := `
-		app:
-		name: "TestFox"
-		env: "development"
-		timezone: "Asia/Jakarta"
-		debug: true
+app:
+  name: "TestFox"
+  env: "development"
+  timezone: "Asia/Jakarta"
+  debug: true
 
-		server:
-		host: "127.0.0.1"
-		port: 9090
-		read_timeout: "10s"
-		write_timeout: "10s"
-		shutdown_timeout: "5s"
+server:
+  host: "127.0.0.1"
+  port: 9090
+  read_timeout: "10s"
+  write_timeout: "10s"
+  shutdown_timeout: "5s"
 
-		fangs:
-		driver: "sqlite"
-		sqlite_path: "./test.db"
+fangs:
+  driver: "sqlite"
+  sqlite_path: "./test.db"
 
-		sanctum:
-		access_secret: "test-secret-yang-cukup-panjang-32char"
-		refresh_secret: "refresh-secret-yang-berbeda-32char!!"
-		access_ttl: "15m"
-		refresh_ttl: "168h"
+sanctum:
+  access_secret: "test-secret-yang-cukup-panjang-32char"
+  refresh_secret: "refresh-secret-yang-berbeda-32char!!"
+  access_ttl: "15m"
+  refresh_ttl: "168h"
 
-		log:
-		level: "debug"
-		format: "console"
-		output: "stdout"
-		`
+log:
+  level: "debug"
+  format: "console"
+  output: "stdout"
+`
 	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
 		t.Fatalf("gagal menulis temp config: %v", err)
 	}
@@ -76,8 +77,8 @@ func TestLoadConfig_FromFile(t *testing.T) {
 	}
 
 	// Fangs
-	if cfg.Fangs.Driver != DBDriverSQLite {
-		t.Errorf("Fangs.Driver = %q, want %q", cfg.Fangs.Driver, DBDriverSQLite)
+	if cfg.Fangs.Driver != config.DBDriverSQLite {
+		t.Errorf("Fangs.Driver = %q, want %q", cfg.Fangs.Driver, config.DBDriverSQLite)
 	}
 
 	// Log
@@ -108,42 +109,42 @@ func TestLoadConfig_EnvOverride(t *testing.T) {
 func TestFangsConfig_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		cfg     FangsConfig
+		cfg     config.FangsConfig
 		wantErr bool
 	}{
 		{
 			name:    "postgres valid",
-			cfg:     FangsConfig{Driver: DBDriverPostgres, Host: "localhost", User: "vfx", DBName: "main"},
+			cfg:     config.FangsConfig{Driver: config.DBDriverPostgres, Host: "localhost", User: "vfx", DBName: "main"},
 			wantErr: false,
 		},
 		{
 			name:    "mysql valid",
-			cfg:     FangsConfig{Driver: DBDriverMySQL, Host: "localhost", User: "vfx", DBName: "main"},
+			cfg:     config.FangsConfig{Driver: config.DBDriverMySQL, Host: "localhost", User: "vfx", DBName: "main"},
 			wantErr: false,
 		},
 		{
 			name:    "sqlite valid",
-			cfg:     FangsConfig{Driver: DBDriverSQLite, SQLitePath: "./test.db"},
+			cfg:     config.FangsConfig{Driver: config.DBDriverSQLite, SQLitePath: "./test.db"},
 			wantErr: false,
 		},
 		{
 			name:    "driver tidak dikenal",
-			cfg:     FangsConfig{Driver: "mongodb"},
+			cfg:     config.FangsConfig{Driver: "mongodb"},
 			wantErr: true,
 		},
 		{
 			name:    "postgres tanpa host",
-			cfg:     FangsConfig{Driver: DBDriverPostgres, User: "vfx", DBName: "main"},
+			cfg:     config.FangsConfig{Driver: config.DBDriverPostgres, User: "vfx", DBName: "main"},
 			wantErr: true,
 		},
 		{
 			name:    "postgres tanpa user",
-			cfg:     FangsConfig{Driver: DBDriverPostgres, Host: "localhost", DBName: "main"},
+			cfg:     config.FangsConfig{Driver: config.DBDriverPostgres, Host: "localhost", DBName: "main"},
 			wantErr: true,
 		},
 		{
 			name:    "sqlite tanpa path",
-			cfg:     FangsConfig{Driver: DBDriverSQLite},
+			cfg:     config.FangsConfig{Driver: config.DBDriverSQLite},
 			wantErr: true,
 		},
 	}
@@ -161,28 +162,28 @@ func TestFangsConfig_Validate(t *testing.T) {
 func TestFangsConfig_DSN(t *testing.T) {
 	tests := []struct {
 		name    string
-		cfg     FangsConfig
+		cfg     config.FangsConfig
 		wantDSN string
 	}{
 		{
 			name: "postgres DSN",
-			cfg: FangsConfig{
-				Driver: DBDriverPostgres, Host: "localhost", Port: 5432,
+			cfg: config.FangsConfig{
+				Driver: config.DBDriverPostgres, Host: "localhost", Port: 5432,
 				User: "vfx", Password: "secret", DBName: "main", SSLMode: "disable",
 			},
 			wantDSN: "host=localhost port=5432 user=vfx password=secret dbname=main sslmode=disable TimeZone=Asia/Jakarta",
 		},
 		{
 			name: "mysql DSN",
-			cfg: FangsConfig{
-				Driver: DBDriverMySQL, Host: "localhost", Port: 3306,
+			cfg: config.FangsConfig{
+				Driver: config.DBDriverMySQL, Host: "localhost", Port: 3306,
 				User: "vfx", Password: "secret", DBName: "main",
 			},
 			wantDSN: "vfx:secret@tcp(localhost:3306)/main?charset=utf8mb4&parseTime=True&loc=Local",
 		},
 		{
 			name: "sqlite DSN",
-			cfg:     FangsConfig{Driver: DBDriverSQLite, SQLitePath: "./test.db"},
+			cfg:     config.FangsConfig{Driver: config.DBDriverSQLite, SQLitePath: "./test.db"},
 			wantDSN: "./test.db",
 		},
 	}
@@ -200,12 +201,12 @@ func TestFangsConfig_DSN(t *testing.T) {
 func TestSanctumConfig_Validate(t *testing.T) {
 	tests := []struct {
 		name    string
-		cfg     SanctumConfig
+		cfg     config.SanctumConfig
 		wantErr bool
 	}{
 		{
 			name: "valid",
-			cfg: SanctumConfig{
+			cfg: config.SanctumConfig{
 				AccessSecret:  "ini-secret-yang-cukup-panjang-32c",
 				RefreshSecret: "refresh-secret-yang-berbeda-32ch!!",
 			},
@@ -213,17 +214,17 @@ func TestSanctumConfig_Validate(t *testing.T) {
 		},
 		{
 			name:    "masih default",
-			cfg:     SanctumConfig{AccessSecret: "GANTI_INI_ACCESS", RefreshSecret: "ok-refresh-secret-32characters!!!"},
+			cfg:     config.SanctumConfig{AccessSecret: "GANTI_INI_ACCESS", RefreshSecret: "ok-refresh-secret-32characters!!!"},
 			wantErr: true,
 		},
 		{
 			name:    "terlalu pendek",
-			cfg:     SanctumConfig{AccessSecret: "short", RefreshSecret: "ok-refresh-secret-32characters!!!"},
+			cfg:     config.SanctumConfig{AccessSecret: "short", RefreshSecret: "ok-refresh-secret-32characters!!!"},
 			wantErr: true,
 		},
 		{
 			name:    "access == refresh",
-			cfg:     SanctumConfig{AccessSecret: "sama-secret-32-characters-abcdefg", RefreshSecret: "sama-secret-32-characters-abcdefg"},
+			cfg:     config.SanctumConfig{AccessSecret: "sama-secret-32-characters-abcdefg", RefreshSecret: "sama-secret-32-characters-abcdefg"},
 			wantErr: true,
 		},
 	}

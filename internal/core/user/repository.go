@@ -44,7 +44,7 @@ func NewRepository(db *gorm.DB, ts *shadow.TenantShadow, logger *zap.Logger) *Re
 
 const userCacheTTL = 10 * time.Minute
 
-func cacheKeyByID(id string) string       { return shadow.BuildKey("user", "id", id) }
+func cacheKeyByID(id string) string      { return shadow.BuildKey("user", "id", id) }
 func cacheKeyByEmail(email string) string { return shadow.BuildKey("user", "email", email) }
 
 // ── Finders ───────────────────────────────────────────────────────

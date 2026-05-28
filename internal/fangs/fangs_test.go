@@ -5,9 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aditya-lucis/vampifox/internal/den"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+
+	"github.com/aditya-lucis/vampifox/internal/config"
 )
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -19,9 +20,9 @@ func newTestLogger() *zap.Logger {
 
 // newSQLiteConfig membuat konfigurasi SQLite in-memory untuk test.
 // SQLite dipilih karena tidak butuh server eksternal.
-func newSQLiteConfig() den.FangsConfig {
-	return den.FangsConfig{
-		Driver:             den.DBDriverSQLite,
+func newSQLiteConfig() config.FangsConfig {
+	return config.FangsConfig{
+		Driver:             config.DBDriverSQLite,
 		SQLitePath:         ":memory:",
 		MaxOpenConns:       5,
 		MaxIdleConns:       2,
@@ -54,7 +55,7 @@ func TestNew_NilLogger_Error(t *testing.T) {
 }
 
 func TestNew_InvalidDriver_Error(t *testing.T) {
-	cfg := den.FangsConfig{
+	cfg := config.FangsConfig{
 		Driver: "mongodb", // tidak didukung
 	}
 	_, err := New(cfg, newTestLogger())
@@ -293,8 +294,8 @@ func TestIsNotFound(t *testing.T) {
 // ── Test: buildGORMLogger ─────────────────────────────────────────
 
 func TestBuildGORMLogger_LogQueries(t *testing.T) {
-	cfgWithLog := den.FangsConfig{LogQueries: true, SlowQueryThreshold: 200 * time.Millisecond}
-	cfgNoLog := den.FangsConfig{LogQueries: false}
+	cfgWithLog := config.FangsConfig{LogQueries: true, SlowQueryThreshold: 200 * time.Millisecond}
+	cfgNoLog := config.FangsConfig{LogQueries: false}
 
 	l1 := buildGORMLogger(cfgWithLog, zap.NewNop())
 	l2 := buildGORMLogger(cfgNoLog, zap.NewNop())

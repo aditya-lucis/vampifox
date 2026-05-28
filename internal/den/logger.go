@@ -7,6 +7,8 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/aditya-lucis/vampifox/internal/config"
 )
 
 // ═══════════════════════════════════════════════════════════════
@@ -16,7 +18,7 @@ import (
 
 // buildLogger membuat zap.Logger sesuai konfigurasi LogConfig.
 // Dipanggil sekali saat Den.Awaken().
-func buildLogger(cfg LogConfig) (*zap.Logger, error) {
+func buildLogger(cfg config.LogConfig) (*zap.Logger, error) {
 	// ── Level ─────────────────────────────────────────────────────
 	level, err := parseLogLevel(cfg.Level)
 	if err != nil {

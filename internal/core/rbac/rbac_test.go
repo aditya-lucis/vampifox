@@ -8,12 +8,12 @@ import (
 
 func TestPermission_Parse(t *testing.T) {
 	tests := []struct {
-		raw     string
-		wantMod string
-		wantRes string
-		wantAct string
-		wantFld string
-		wantErr bool
+		raw      string
+		wantMod  string
+		wantRes  string
+		wantAct  string
+		wantFld  string
+		wantErr  bool
 	}{
 		{"*:*", "*", "*", "*", "", false},
 		{"accounting:*", "accounting", "*", "*", "", false},
@@ -256,8 +256,8 @@ func TestCovenant_CanAny(t *testing.T) {
 
 	// Familiar bisa read user — CanAny harus true jika salah satu match
 	result := c.CanAny(roles,
-		PermUserDelete, // tidak bisa
-		PermUserRead,   // bisa
+		PermUserDelete,  // tidak bisa
+		PermUserRead,    // bisa
 	)
 	if !result {
 		t.Error("CanAny harus true jika salah satu permission match")
