@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/aditya-lucis/vampifox/internal/config"
 	"github.com/aditya-lucis/vampifox/internal/core/tenant"
@@ -12,75 +13,61 @@ import (
 	"github.com/aditya-lucis/vampifox/internal/shadow"
 )
 
-// foxServices adalah kumpulan service yang diinisialisasi oleh foxctl.
-// Berbeda dari den.Services — tidak ada HTTP server, auth, atau RBAC.
-// Hanya infrastruktur yang dibutuhkan CLI.
+// foxServices adalah service yang dibutuhkan foxctl.
+// Lebih ringan dari den.Services — tidak ada HTTP server, auth, RBAC.
 type foxServices struct {
-	cfg        *config.VampConfig
-	fangs      *fangs.Fangs
-	shadow     *shadow.Shadow
-	tenantRepo *tenant.Repository
-	tenantSvc  *tenant.Service
-	logger     *zap.Logger
+	cfg       *config.VampConfig
+	fangs     *fangs.Fangs
+	shadow    *shadow.Shadow
+	tenantSvc *tenant.Service
+	logger    *zap.Logger
 }
 
-// loadServices membaca config dan menginisialisasi service yang dibutuhkan foxctl.
-// configPath boleh kosong — akan auto-discover vampifox.yaml.
-func loadServices(configPath string) (*foxServices, error) {
-	// ── Config ────────────────────────────────────────────────────
+// load membaca config dan menginisialisasi service untuk foxctl.
+func load(configPath string) (*foxServices, error) {
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("gagal memuat config: %w", err)
+		return nil, fmt.Errorf("gagal memuat config: %w\n  Pastikan vampifox.yaml ada di ./configs/ atau set VAMPIFOX_CONFIG", err)
 	}
 
 	if err := cfg.Fangs.Validate(); err != nil {
 		return nil, err
 	}
 
-	// Logger sederhana untuk CLI — selalu console, level info
-	logCfg := cfg.Log
-	logCfg.Format = "console"
-	logCfg.Output = "stdout"
-	if logCfg.Level == "" {
-		logCfg.Level = "info"
-	}
+	logger := buildCLILogger()
 
-	logger, _ := buildCLILogger()
-
-	// ── Fangs ─────────────────────────────────────────────────────
+	// Fangs (wajib)
 	f, err := fangs.New(cfg.Fangs, logger)
 	if err != nil {
-		return nil, fmt.Errorf("gagal terhubung ke database: %w\n  Driver: %s\n  Host: %s", err, cfg.Fangs.Driver, cfg.Fangs.Host)
+		return nil, fmt.Errorf("gagal terhubung ke database:\n  Driver : %s\n  Host   : %s:%d\n  Error  : %w",
+			cfg.Fangs.Driver, cfg.Fangs.Host, cfg.Fangs.Port, err)
 	}
 
-	// ── Shadow ────────────────────────────────────────────────────
+	// Shadow (opsional — lanjut tanpa cache jika Redis tidak tersedia)
 	sh, err := shadow.New(cfg.Shadow, logger)
 	if err != nil {
-		// Shadow (Redis) opsional untuk CLI — lanjut tanpa cache
-		logger.Warn("Redis tidak tersedia, cache dinonaktifkan", zap.Error(err))
+		logger.Warn("Redis tidak tersedia, beberapa fitur mungkin lambat",
+			zap.String("addr", cfg.Shadow.Addr),
+		)
 		sh = nil
 	}
 
-	// ── Tenant services ───────────────────────────────────────────
-	var tenantRepo *tenant.Repository
 	var tenantSvc *tenant.Service
-
 	if sh != nil {
-		tenantRepo = tenant.NewRepository(f.DB(), sh, logger)
-		tenantSvc = tenant.NewService(tenantRepo, f, logger)
+		repo := tenant.NewRepository(f.DB(), sh, logger)
+		tenantSvc = tenant.NewService(repo, f, logger)
 	}
 
 	return &foxServices{
-		cfg:        cfg,
-		fangs:      f,
-		shadow:     sh,
-		tenantRepo: tenantRepo,
-		tenantSvc:  tenantSvc,
-		logger:     logger,
+		cfg:       cfg,
+		fangs:     f,
+		shadow:    sh,
+		tenantSvc: tenantSvc,
+		logger:    logger,
 	}, nil
 }
 
-// close menutup semua koneksi.
+// close menutup semua koneksi dengan rapi.
 func (s *foxServices) close() {
 	if s.fangs != nil {
 		_ = s.fangs.Close()
@@ -90,20 +77,19 @@ func (s *foxServices) close() {
 	}
 }
 
-// buildCLILogger membuat logger sederhana untuk output CLI.
-func buildCLILogger() (*zap.Logger, error) {
-	return zap.NewDevelopment(zap.WithCaller(false))
+// buildCLILogger membuat logger yang ramah untuk output terminal.
+func buildCLILogger() *zap.Logger {
+	cfg := zap.NewDevelopmentEncoderConfig()
+	cfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	cfg.TimeKey = ""     // hapus timestamp — tidak perlu di CLI
+	cfg.CallerKey = ""   // hapus caller
+
+	core := zapcore.NewCore(
+		zapcore.NewConsoleEncoder(cfg),
+		zapcore.AddSync(os.Stdout),
+		zapcore.InfoLevel,
+	)
+	return zap.New(core)
 }
 
-// configPath membaca --config flag atau env var VAMPIFOX_CONFIG.
-func getConfigPath(cmd interface{ Flags() interface{ GetString(string) (string, error) } }) string {
-	// Coba dari flag --config
-	if p, err := cmd.Flags().GetString("config"); err == nil && p != "" {
-		return p
-	}
-	// Coba dari env var
-	if p := os.Getenv("VAMPIFOX_CONFIG"); p != "" {
-		return p
-	}
-	return ""
-}
+
