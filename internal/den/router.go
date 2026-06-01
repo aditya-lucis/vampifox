@@ -1,14 +1,15 @@
 package den
 
 import (
-	"net/http"
+	"github.com/gin-gonic/gin"
 
 	"github.com/aditya-lucis/vampifox/internal/api/rest"
 )
 
-// buildRouter membuat HTTP handler dari services yang sudah di-wire.
-func (d *Den) buildRouter() http.Handler {
-	svc := d.services
+// buildRouter membuat dan mengkonfigurasi Gin engine dari services yang sudah di-wire.
+// Dipanggil dari Awaken() setelah wire() selesai.
+func (d *Den) buildRouter() *gin.Engine {
+	svc := d.svc
 	return rest.NewRouter(rest.RouterDeps{
 		TokenValidator: svc.TokenValidator,
 		AuthFactory:    svc.AuthFactory,

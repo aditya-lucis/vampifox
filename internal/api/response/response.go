@@ -6,7 +6,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/aditya-lucis/vampifox/internal/api/middleware"
 )
 
 // ═══════════════════════════════════════════════════════════════
@@ -63,7 +62,7 @@ func OK(c *gin.Context, data any) {
 	c.JSON(http.StatusOK, Response{
 		Success:   true,
 		Data:      data,
-		RequestID: middleware.GetRequestID(c),
+		RequestID: c.GetString("vfx_request_id"),
 	})
 }
 
@@ -72,7 +71,7 @@ func Created(c *gin.Context, data any) {
 	c.JSON(http.StatusCreated, Response{
 		Success:   true,
 		Data:      data,
-		RequestID: middleware.GetRequestID(c),
+		RequestID: c.GetString("vfx_request_id"),
 	})
 }
 
@@ -82,7 +81,7 @@ func Paginated(c *gin.Context, data any, meta Meta) {
 		Success:   true,
 		Data:      data,
 		Meta:      &meta,
-		RequestID: middleware.GetRequestID(c),
+		RequestID: c.GetString("vfx_request_id"),
 	})
 }
 
@@ -101,7 +100,7 @@ func errResp(c *gin.Context, status int, code, message, field string) {
 			Message: message,
 			Field:   field,
 		},
-		RequestID: middleware.GetRequestID(c),
+		RequestID: c.GetString("vfx_request_id"),
 	})
 }
 

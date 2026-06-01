@@ -38,6 +38,12 @@ const (
 
 // ── Context accessors ─────────────────────────────────────────────
 
+// SetBloodClaims menyimpan BloodClaims ke gin.Context.
+// Dipanggil oleh Bloodgate middleware setelah token divalidasi.
+func SetBloodClaims(c *gin.Context, claims *auth.BloodClaims) {
+	c.Set(KeyBloodClaims, claims)
+}
+
 // GetBloodClaims mengambil BloodClaims dari gin.Context.
 // Mengembalikan nil jika Bloodgate middleware belum dijalankan.
 func GetBloodClaims(c *gin.Context) *auth.BloodClaims {

@@ -84,8 +84,8 @@ var tenantCreateCmd = &cobra.Command{
 
 		fmt.Println("[OK] Tenant berhasil dibuat!")
 		fmt.Printf("  ID     : %s\n", tenant.ID.String())
-		fmt.Printf("  Slug   : %s\n", tenant.TenantSlug)
-		fmt.Printf("  Schema : %s\n", tenant.TenantSchema)
+		fmt.Printf("  Slug   : %s\n", tenant.Slug)
+		fmt.Printf("  Schema : %s\n", tenant.SchemaName)
 		fmt.Printf("  Status : %s\n", tenant.Status)
 		fmt.Println()
 		fmt.Println("  Langkah selanjutnya:")
@@ -135,7 +135,7 @@ var tenantListCmd = &cobra.Command{
 
 		for _, t := range tenants {
 			fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%s\n",
-				t.TenantSlug, t.Name, t.Plan, t.Status, t.TenantSchema)
+				t.Slug, t.Name, t.Plan, t.Status, t.SchemaName)
 		}
 		w.Flush()
 		fmt.Println()

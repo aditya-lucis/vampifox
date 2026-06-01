@@ -1,6 +1,8 @@
 package user
 
 import (
+	"context"
+
 	"go.uber.org/zap"
 
 	"github.com/aditya-lucis/vampifox/internal/fangs"
@@ -49,17 +51,20 @@ func NewServiceFactory(
 //	t := middleware.GetTenant(c)
 //	userSvc := userFactory.ForTenant(t)
 //	user, err := userSvc.Register(ctx, input, roles)
-func (f *ServiceFactory) ForTenant(t fangs.TenantScope) *Service {
+func (f *ServiceFactory) ForTenant(ctx context.Context, t fangs.TenantScope) (*Service, func(), error) {
 	// Scope DB ke schema tenant
-	tenantDB := f.fangs.For(t)
+	tenantDB, release, err := f.fangs.For(ctx, t)
+	if err != nil {
+		return nil, func() {}, err
+	}
 
 	// Scope cache ke namespace tenant
-	tenantShadow := f.shadow.ForTenant(t.Slug())
+	tenantShadow := f.shadow.ForTenant(t.TenantSlug())
 
 	// Buat repository dengan DB + cache yang sudah di-scope
 	repo := NewRepository(tenantDB, tenantShadow, f.logger)
 
-	return NewService(repo, f.bcryptCost, f.logger)
+	return NewService(repo, f.bcryptCost, f.logger), release, nil
 }
 
 // ForTenant menggunakan fangs.TenantScope — interface yang sama

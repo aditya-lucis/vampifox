@@ -7,6 +7,7 @@ import (
 	"github.com/aditya-lucis/vampifox/internal/api/middleware"
 	rest "github.com/aditya-lucis/vampifox/internal/api/response"
 	"github.com/aditya-lucis/vampifox/internal/core/rbac"
+	"github.com/aditya-lucis/vampifox/internal/core/tenant"
 	"github.com/aditya-lucis/vampifox/internal/core/user"
 )
 
@@ -30,13 +31,19 @@ type userHandler struct {
 }
 
 // svc membuat user.Service yang di-scope ke tenant dari context.
-func (h *userHandler) svc(c *gin.Context) (*user.Service, bool) {
+func (h *userHandler) svc(c *gin.Context) (*user.Service, func(), bool) {
 	t := middleware.GetTenant(c)
 	if t == nil {
 		rest.InternalError(c, "Tenant context tidak tersedia.")
-		return nil, false
+		return nil, func() {}, false
 	}
-	return h.factory.ForTenant(t), true
+	scope := tenant.NewScope(t)
+	svc, release, err := h.factory.ForTenant(c.Request.Context(), scope)
+	if err != nil {
+		rest.InternalError(c, "Gagal menginisialisasi layanan.")
+		return nil, func() {}, false
+	}
+	return svc, release, true
 }
 
 // ── GET /users/me ─────────────────────────────────────────────────
@@ -48,7 +55,8 @@ func (h *userHandler) getMe(c *gin.Context) {
 		return
 	}
 
-	svc, ok := h.svc(c)
+	svc, release, ok := h.svc(c)
+	defer release()
 	if !ok {
 		return
 	}
@@ -95,7 +103,8 @@ func (h *userHandler) updateMe(c *gin.Context) {
 		return
 	}
 
-	svc, ok := h.svc(c)
+	svc, release, ok := h.svc(c)
+	defer release()
 	if !ok {
 		return
 	}
@@ -141,7 +150,8 @@ func (h *userHandler) changePassword(c *gin.Context) {
 		return
 	}
 
-	svc, ok := h.svc(c)
+	svc, release, ok := h.svc(c)
+	defer release()
 	if !ok {
 		return
 	}

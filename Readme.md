@@ -1,6 +1,12 @@
 <div align="center">
 
+<<<<<<< HEAD
 # 🦊🧛 VampiFox ERP Framework
+=======
+<img src="https://github.com/aditya-lucis/vampifox-gallery/blob/main/vampifox.jpg" alt="VampiFox Golang ERP Framework Logo" width="400" />
+
+# 🦊🧛 VampiFox ERP Framework - Modern Golang Open Source ERP
+>>>>>>> b87e9c1095449bc105f22902c3c4a218afcb3f4e
 
 **"The Night Never Sleeps, The Fox Never Rests"**
 
@@ -15,6 +21,35 @@ Terinspirasi dari ERPNext & Odoo, dibangun dengan karakter sendiri.
 
 ---
 
+<<<<<<< HEAD
+=======
+## 🌟 Key Features
+
+VampiFox is designed to be the ultimate Golang ERP starter kit for developers and enterprises:
+* **True Multi-Tenancy:** Securely isolate data for multiple companies or branches within a single database instance.
+* **Modular ERP Modules:** Pre-structured domains for Accounting, Inventory, Purchasing, Sales, HRM, CRM, and Project Management.
+* **Dual API Support:** Fully equipped with both REST API (Gin) and GraphQL (gqlgen) endpoints.
+* **Advanced RBAC (Role-Based Access Control):** Granular permission management from the Tenant Owner (Overlord) down to the Auditor (Spectre).
+* **High Performance:** Powered by Go 1.23+, PostgreSQL, Redis caching, and NATS JetStream for event-driven messaging.
+
+---
+
+## 📋 Project Status
+
+**⚠️ Under Heavy Development** — Versi saat ini masih dalam tahap aktif pengembangan.
+
+Fitur inti sudah mulai terbentuk, tapi masih banyak yang akan diubah dan ditambahkan.
+
+---
+
+## 📖 Architecture Documentation
+
+- [🇮🇩 VampiFox Architecture v0.2 (Bahasa Indonesia)](https://github.com/aditya-lucis/vampifox-gallery/blob/main/VampiFox-Architecture-v0.2.pdf)
+- [🇬🇧 VampiFox Architecture v0.2 (English)](https://github.com/aditya-lucis/vampifox-gallery/blob/main/VampiFox_Architecture_v0.2_EN.pdf)
+
+---
+
+>>>>>>> b87e9c1095449bc105f22902c3c4a218afcb3f4e
 ## 🚀 Quick Start (Windows)
 
 ### 1. Pertama kali — jalankan setup wizard

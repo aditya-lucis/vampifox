@@ -41,10 +41,10 @@ func Territory(resolver *tenant.Resolver, logger *zap.Logger) gin.HandlerFunc {
 		// Inject tenant ke context
 		ctx := tenant.WithTenant(c.Request.Context(), result.Tenant)
 		c.Request = c.Request.WithContext(ctx)
-		c.Set(KeyTenantSlug, result.Tenant.TenantSlug)
+		c.Set(KeyTenantSlug, result.Tenant.Slug)
 
 		logger.Debug("Territory: tenant ditemukan",
-			zap.String("slug", result.Tenant.TenantSlug),
+			zap.String("slug", result.Tenant.Slug),
 			zap.String("strategy", result.Strategy),
 		)
 

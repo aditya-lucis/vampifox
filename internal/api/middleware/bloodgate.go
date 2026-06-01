@@ -1,118 +1,152 @@
 package middleware
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
 	"github.com/aditya-lucis/vampifox/internal/core/auth"
+	"github.com/aditya-lucis/vampifox/internal/core/tenant"
+	"github.com/gin-gonic/gin"
 )
 
-// ═══════════════════════════════════════════════════════════════
-//  Bloodgate — autentikasi JWT
-// ═══════════════════════════════════════════════════════════════
-
-// Bloodgate middleware memverifikasi JWT access token di setiap request.
-//
-// Menerima *auth.TokenValidator — bukan *auth.Service — karena
-// validasi token tidak butuh database, hanya Sanctum + Redis.
-// Ini membuat Bloodgate aman sebagai singleton middleware.
-//
-// Urutan middleware yang benar:
-//
-//	Territory → Bloodgate → Covenant → Handler
+// Bloodgate middleware autentikasi JWT.
+// Hanya yang membawa "undangan sah" (JWT valid) yang boleh masuk.
 func Bloodgate(validator *auth.TokenValidator, logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenStr, err := extractBearerToken(c.Request)
 		if err != nil {
-			logger.Debug("Bloodgate: token tidak ada",
-				zap.String("path", c.Request.URL.Path),
-			)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, newErrorResponse(c,
-				"NOT_INVITED",
-				"Sertakan Bearer token yang valid di header Authorization.",
-			))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "NOT_INVITED",
+					"message": "Kamu tidak diundang — sertakan Bearer token.",
+				},
+			})
 			return
 		}
 
 		claims, err := validator.ValidateAccessToken(c.Request.Context(), tokenStr)
 		if err != nil {
-			status, code, msg := authErrToHTTP(err)
-			logger.Debug("Bloodgate: token ditolak",
-				zap.String("path", c.Request.URL.Path),
-				zap.Error(err),
-			)
-			c.AbortWithStatusJSON(status, newErrorResponse(c, code, msg))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "INVITATION_EXPIRED",
+					"message": "Undanganmu telah kedaluwarsa. Minta yang baru.",
+				},
+			})
 			return
 		}
 
-		// Inject claims ke context
-		c.Set(KeyBloodClaims, claims)
-
-		logger.Debug("Bloodgate: akses diterima",
-			zap.String("user_id", claims.UserID.String()),
-			zap.String("tenant", claims.TenantSlug),
-			zap.Strings("roles", claims.Roles),
-		)
-
+		// Simpan claims ke context untuk handler berikutnya
+		SetBloodClaims(c, claims)
 		c.Next()
 	}
 }
 
-// BloodgateOptional seperti Bloodgate tapi tidak reject jika token tidak ada.
-func BloodgateOptional(validator *auth.TokenValidator, logger *zap.Logger) gin.HandlerFunc {
+// TenantResolver middleware resolusi tenant dari header atau subdomain.
+//
+// Urutan resolusi:
+//  1. Header X-VampiFox-Tenant (prioritas utama, cocok untuk API client)
+//  2. Subdomain, e.g. "pt-maju-jaya.vampifox.com" (cocok untuk web app)
+//
+// Setelah slug ditemukan, tenant di-load dari Shadow cache atau Fangs (DB).
+// Tenant yang suspended atau expired akan ditolak dengan 403.
+//
+// Setelah middleware ini, handler bisa ambil tenant via:
+//
+//	t := tenant.MustFromContext(c.Request.Context())
+func TenantResolver(svc *tenant.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tokenStr, err := extractBearerToken(c.Request)
-		if err != nil {
-			c.Next()
+		// ── Resolusi slug ─────────────────────────────────────────
+		slug := c.GetHeader("X-VampiFox-Tenant")
+
+		// Fallback: ambil dari subdomain
+		if slug == "" {
+			host := c.Request.Host
+			parts := strings.Split(host, ".")
+			if len(parts) > 2 {
+				slug = parts[0]
+			}
+		}
+
+		if slug == "" {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"error": gin.H{
+					"code":    "UNKNOWN_TERRITORY",
+					"message": "Wilayah kekuasaan tidak dikenali. Sertakan header X-VampiFox-Tenant.",
+				},
+			})
 			return
 		}
-		claims, err := validator.ValidateAccessToken(c.Request.Context(), tokenStr)
+
+		// ── Load tenant dari cache / DB ───────────────────────────
+		t, err := svc.FindBySlug(c.Request.Context(), slug)
 		if err != nil {
-			logger.Debug("BloodgateOptional: token tidak valid, lanjut anonymous",
-				zap.Error(err),
-			)
-			c.Next()
+			switch err {
+			case tenant.ErrNotFound:
+				c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+					"success": false,
+					"error": gin.H{
+						"code":    "TERRITORY_NOT_FOUND",
+						"message": "Tenant '" + slug + "' tidak ditemukan.",
+					},
+				})
+			case tenant.ErrSuspended:
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+					"success": false,
+					"error": gin.H{
+						"code":    "TERRITORY_SUSPENDED",
+						"message": "Akses tenant ini sedang ditangguhkan.",
+					},
+				})
+			case tenant.ErrExpired:
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+					"success": false,
+					"error": gin.H{
+						"code":    "TERRITORY_EXPIRED",
+						"message": "Masa berlaku tenant ini sudah habis.",
+					},
+				})
+			default:
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+					"success": false,
+					"error": gin.H{
+						"code":    "TERRITORY_ERROR",
+						"message": "Gagal memuat data tenant.",
+					},
+				})
+			}
 			return
 		}
-		c.Set(KeyBloodClaims, claims)
+
+		// ── Inject ke context ─────────────────────────────────────
+		ctx := tenant.WithTenant(c.Request.Context(), t)
+		c.Request = c.Request.WithContext(ctx)
+		c.Set("tenant_slug", t.Slug)
+
 		c.Next()
 	}
 }
 
-// ── Helpers ───────────────────────────────────────────────────────
-
+// extractBearerToken mengekstrak token dari Authorization header.
+// Format yang diterima: "Bearer <token>"
+// Mengembalikan error jika header kosong, tidak pakai Bearer scheme,
+// atau token-nya kosong.
 func extractBearerToken(r *http.Request) (string, error) {
 	header := r.Header.Get("Authorization")
 	if header == "" {
-		return "", errors.New("Authorization header tidak ada")
+		return "", fmt.Errorf("Authorization header tidak ada")
 	}
-	parts := strings.SplitN(header, " ", 2)
-	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return "", errors.New("format harus: Bearer <token>")
+	if !strings.HasPrefix(header, "Bearer ") {
+		return "", fmt.Errorf("Authorization header bukan Bearer scheme")
 	}
-	token := strings.TrimSpace(parts[1])
+	token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
 	if token == "" {
-		return "", errors.New("token kosong")
+		return "", fmt.Errorf("Bearer token kosong")
 	}
 	return token, nil
-}
-
-func authErrToHTTP(err error) (status int, code, message string) {
-	switch {
-	case errors.Is(err, auth.ErrTokenExpired):
-		return http.StatusUnauthorized, "INVITATION_EXPIRED",
-			"Token kadaluarsa. Minta token baru via /auth/refresh."
-	case errors.Is(err, auth.ErrTokenRevoked):
-		return http.StatusUnauthorized, "INVITATION_REVOKED",
-			"Token dicabut. Silakan login ulang."
-	case errors.Is(err, auth.ErrInvalidToken):
-		return http.StatusUnauthorized, "INVALID_INVITATION",
-			"Token tidak valid."
-	default:
-		return http.StatusUnauthorized, "NOT_INVITED", "Autentikasi gagal."
-	}
 }

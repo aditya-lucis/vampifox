@@ -83,16 +83,16 @@ type Settings map[string]any
 // Tenant merepresentasikan satu wilayah kekuasaan VampiFox.
 // Disimpan di schema sistem (vfx_system.tenants), bukan di schema tenant itu sendiri.
 type Tenant struct {
-	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	TenantSlug string     `gorm:"column:slug;uniqueIndex;not null;size:100"`
-	Name       string     `gorm:"not null;size:255"`
-	Domain     string     `gorm:"uniqueIndex;size:255"` // custom domain opsional, e.g. "erp.pt-maju.com"
-	Plan       Plan       `gorm:"not null;default:'starter'"`
-	Status     Status     `gorm:"not null;default:'active'"`
-	TenantSchema string   `gorm:"column:schema_name;not null;size:100"` // nama schema DB, e.g. "vfx_pt_maju_jaya"
-	MaxUsers   int        `gorm:"not null;default:10"`
-	StorageGB  int        `gorm:"not null;default:5"`
-	Settings   Settings   `gorm:"serializer:json"`
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	Slug       string    `gorm:"uniqueIndex;not null;size:100"`
+	Name       string    `gorm:"not null;size:255"`
+	Domain     string    `gorm:"uniqueIndex;size:255"` // custom domain opsional, e.g. "erp.pt-maju.com"
+	Plan       Plan      `gorm:"not null;default:'starter'"`
+	Status     Status    `gorm:"not null;default:'active'"`
+	SchemaName string    `gorm:"not null;size:100"` // nama schema DB, e.g. "vfx_pt_maju_jaya"
+	MaxUsers   int       `gorm:"not null;default:10"`
+	StorageGB  int       `gorm:"not null;default:5"`
+	Settings   Settings  `gorm:"serializer:json"`
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 
@@ -157,17 +157,11 @@ func (t *Tenant) SetSetting(key string, val any) {
 	t.Settings[key] = val
 }
 
-// ─ Implements fangs.TenantScope interface ─────────────────────────
-
-// Slug mengembalikan slug tenant — memenuhi fangs.TenantScope.
-// Slug memenuhi fangs.TenantScope dan user.TenantScope.
-func (t *Tenant) Slug() string { return t.TenantSlug }
-
-// SchemaNameStr memenuhi fangs.TenantScope dan user.TenantScope.
-// Dipisah dari field SchemaName agar *Tenant bisa dipakai langsung.
-func (t *Tenant) SchemaName() string { return t.TenantSchema }
-
-
+// ─ Implements fangs.TenantScope — via Scope adapter di resolver.go ──
+//
+// *Tenant tidak langsung implement fangs.TenantScope karena field Slug
+// konflik dengan nama method. Gunakan tenant.NewScope(t) atau
+// tenant.ScopeFromContext(ctx) untuk mendapatkan fangs.TenantScope.
 
 // ═══════════════════════════════════════════════════════════════
 //  CreateTenantInput — input untuk membuat tenant baru
@@ -175,10 +169,10 @@ func (t *Tenant) SchemaName() string { return t.TenantSchema }
 
 // CreateInput adalah data yang dibutuhkan untuk membuat tenant baru.
 type CreateInput struct {
-	Name   string   `json:"name"   validate:"required,min=2,max=255"`
-	Slug   string   `json:"slug"   validate:"required,min=2,max=100"`
-	Plan   Plan     `json:"plan"`
-	Domain string   `json:"domain"`
+	Name   string `json:"name"   validate:"required,min=2,max=255"`
+	Slug   string `json:"slug"   validate:"required,min=2,max=100"`
+	Plan   Plan   `json:"plan"`
+	Domain string `json:"domain"`
 	// MaxUsers dan StorageGB di-set otomatis berdasarkan Plan jika tidak diisi
 	MaxUsers  int `json:"max_users"`
 	StorageGB int `json:"storage_gb"`

@@ -145,7 +145,7 @@ func TestTenant_Setting(t *testing.T) {
 // ── Test: Context helpers ─────────────────────────────────────────
 
 func TestWithTenant_FromContext(t *testing.T) {
-	original := &Tenant{TenantSlug: "test-tenant", Status: StatusActive}
+	original := &Tenant{Slug: "test-tenant", Status: StatusActive}
 
 	ctx := context.Background()
 	ctx = WithTenant(ctx, original)
@@ -154,8 +154,8 @@ func TestWithTenant_FromContext(t *testing.T) {
 	if !ok {
 		t.Fatal("FromContext harus return ok=true setelah WithTenant")
 	}
-	if retrieved.TenantSlug != original.TenantSlug {
-		t.Errorf("Slug = %q, want %q", retrieved.TenantSlug, original.TenantSlug)
+	if retrieved.Slug != original.Slug {
+		t.Errorf("Slug = %q, want %q", retrieved.Slug, original.Slug)
 	}
 }
 
@@ -236,11 +236,11 @@ func TestSubdomainExtraction(t *testing.T) {
 // ── Test: Scope ───────────────────────────────────────────────────
 
 func TestNewScope(t *testing.T) {
-	ten := &Tenant{TenantSlug: "pt-maju-jaya", TenantSchema: "vfx_pt_maju_jaya"}
+	ten := &Tenant{Slug: "pt-maju-jaya", SchemaName: "vfx_pt_maju_jaya"}
 	scope := NewScope(ten)
 
-	if scope.Slug() != "pt-maju-jaya" {
-		t.Errorf("Slug() = %q, want pt-maju-jaya", scope.Slug())
+	if scope.TenantSlug() != "pt-maju-jaya" {
+		t.Errorf("TenantSlug() = %q, want pt-maju-jaya", scope.TenantSlug())
 	}
 	if scope.SchemaName() != "vfx_pt_maju_jaya" {
 		t.Errorf("SchemaName() = %q, want vfx_pt_maju_jaya", scope.SchemaName())

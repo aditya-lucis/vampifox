@@ -80,12 +80,12 @@ func (s *Service) Provision(ctx context.Context, input CreateInput) (*Tenant, er
 
 	// ── Buat Tenant record ────────────────────────────────────────
 	tenant := &Tenant{
-		TenantSlug: input.Slug,
+		Slug: input.Slug,
 		Name:       input.Name,
 		Domain:     input.Domain,
 		Plan:       input.Plan,
 		Status:     StatusActive,
-		TenantSchema: SchemaNameFor(input.Slug),
+		SchemaName: SchemaNameFor(input.Slug),
 		MaxUsers:   maxUsers,
 		StorageGB:  storageGB,
 		Settings:   make(Settings),
@@ -96,20 +96,20 @@ func (s *Service) Provision(ctx context.Context, input CreateInput) (*Tenant, er
 	}
 
 	// ── Buat schema database ──────────────────────────────────────
-	if err := s.fangs.CreateTenantSchema(ctx, tenant.TenantSchema); err != nil {
+	if err := s.fangs.CreateTenantSchema(ctx, tenant.SchemaName); err != nil {
 		// Schema gagal dibuat — log sebagai warning tapi jangan rollback tenant record.
 		// Admin bisa retry provisioning schema via foxctl.
 		s.logger.Error("Gagal membuat schema tenant — tenant tersimpan tapi schema belum ada",
-			zap.String("slug", tenant.TenantSlug),
-			zap.String("schema", tenant.TenantSchema),
+			zap.String("slug", tenant.Slug),
+			zap.String("schema", tenant.SchemaName),
 			zap.Error(err),
 		)
 		return tenant, fmt.Errorf("tenant dibuat tapi schema gagal: %w", err)
 	}
 
 	s.logger.Info("Tenant berhasil di-provision",
-		zap.String("slug", tenant.TenantSlug),
-		zap.String("schema", tenant.TenantSchema),
+		zap.String("slug", tenant.Slug),
+		zap.String("schema", tenant.SchemaName),
 		zap.String("plan", string(tenant.Plan)),
 	)
 

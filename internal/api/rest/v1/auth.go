@@ -9,6 +9,7 @@ import (
 	"github.com/aditya-lucis/vampifox/internal/api/middleware"
 	rest "github.com/aditya-lucis/vampifox/internal/api/response"
 	"github.com/aditya-lucis/vampifox/internal/core/auth"
+	"github.com/aditya-lucis/vampifox/internal/core/tenant"
 	"github.com/aditya-lucis/vampifox/internal/core/user"
 )
 
@@ -27,13 +28,19 @@ type authHandler struct {
 
 // svc membuat auth.Service yang di-scope ke tenant dari context.
 // Dipanggil di awal setiap handler.
-func (h *authHandler) svc(c *gin.Context) (*auth.Service, bool) {
+func (h *authHandler) svc(c *gin.Context) (*auth.Service, func(), bool) {
 	t := middleware.GetTenant(c)
 	if t == nil {
 		rest.InternalError(c, "Tenant context tidak tersedia.")
-		return nil, false
+		return nil, func() {}, false
 	}
-	return h.factory.ForTenant(t), true
+	scope := tenant.NewScope(t)
+	svc, release, err := h.factory.ForTenant(c.Request.Context(), scope)
+	if err != nil {
+		rest.InternalError(c, "Gagal menginisialisasi layanan.")
+		return nil, func() {}, false
+	}
+	return svc, release, true
 }
 
 // ── POST /auth/login ──────────────────────────────────────────────
@@ -59,7 +66,8 @@ type userBrief struct {
 }
 
 func (h *authHandler) login(c *gin.Context) {
-	svc, ok := h.svc(c)
+	svc, release, ok := h.svc(c)
+	defer release()
 	if !ok {
 		return
 	}
@@ -71,7 +79,7 @@ func (h *authHandler) login(c *gin.Context) {
 	}
 
 	t := middleware.GetTenant(c)
-	result, err := svc.Login(c.Request.Context(), t.ID, t.TenantSlug, auth.LoginInput{
+	result, err := svc.Login(c.Request.Context(), t.ID, t.Slug, auth.LoginInput{
 		Email:    req.Email,
 		Password: req.Password,
 	})
@@ -102,7 +110,8 @@ type refreshRequest struct {
 }
 
 func (h *authHandler) refresh(c *gin.Context) {
-	svc, ok := h.svc(c)
+	svc, release, ok := h.svc(c)
+	defer release()
 	if !ok {
 		return
 	}
@@ -114,7 +123,7 @@ func (h *authHandler) refresh(c *gin.Context) {
 	}
 
 	t := middleware.GetTenant(c)
-	tokens, err := svc.Refresh(c.Request.Context(), req.RefreshToken, t.ID, t.TenantSlug)
+	tokens, err := svc.Refresh(c.Request.Context(), req.RefreshToken, t.ID, t.Slug)
 	if err != nil {
 		loginErrToHTTP(c, err)
 		return
@@ -135,7 +144,8 @@ type logoutRequest struct {
 }
 
 func (h *authHandler) logout(c *gin.Context) {
-	svc, ok := h.svc(c)
+	svc, release, ok := h.svc(c)
+	defer release()
 	if !ok {
 		return
 	}

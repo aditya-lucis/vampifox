@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"context"
+
 	"go.uber.org/zap"
 
 	"github.com/aditya-lucis/vampifox/internal/core/user"
@@ -45,7 +47,10 @@ func NewServiceFactory(
 //	t := middleware.GetTenant(c)
 //	authSvc := authFactory.ForTenant(t)
 //	result, err := authSvc.Login(ctx, t.ID, t.Slug, input)
-func (f *ServiceFactory) ForTenant(t fangs.TenantScope) *Service {
-	userSvc := f.userFactory.ForTenant(t)
-	return NewService(userSvc, f.sanctum, f.tokenStore, f.logger)
+func (f *ServiceFactory) ForTenant(ctx context.Context, t fangs.TenantScope) (*Service, func(), error) {
+	userSvc, release, err := f.userFactory.ForTenant(ctx, t)
+	if err != nil {
+		return nil, func() {}, err
+	}
+	return NewService(userSvc, f.sanctum, f.tokenStore, f.logger), release, nil
 }
