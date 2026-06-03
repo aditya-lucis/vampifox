@@ -1,17 +1,13 @@
 <div align="center">
 
-<<<<<<< HEAD
-# 🦊🧛 VampiFox ERP Framework
-=======
 <img src="https://github.com/aditya-lucis/vampifox-gallery/blob/main/vampifox.jpg" alt="VampiFox Golang ERP Framework Logo" width="400" />
 
 # 🦊🧛 VampiFox ERP Framework - Modern Golang Open Source ERP
->>>>>>> b87e9c1095449bc105f22902c3c4a218afcb3f4e
 
 **"The Night Never Sleeps, The Fox Never Rests"**
 
-ERP Framework modern berbasis **Golang** — cepat, modular, dan multi-tenant.  
-Terinspirasi dari ERPNext & Odoo, dibangun dengan karakter sendiri.
+Modern **Golang**-based ERP Framework — fast, modular, and multi-tenant.  
+Inspired by ERPNext & Odoo, built with its own character.
 
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-purple)](LICENSE)
@@ -21,8 +17,6 @@ Terinspirasi dari ERPNext & Odoo, dibangun dengan karakter sendiri.
 
 ---
 
-<<<<<<< HEAD
-=======
 ## 🌟 Key Features
 
 VampiFox is designed to be the ultimate Golang ERP starter kit for developers and enterprises:
@@ -36,9 +30,9 @@ VampiFox is designed to be the ultimate Golang ERP starter kit for developers an
 
 ## 📋 Project Status
 
-**⚠️ Under Heavy Development** — Versi saat ini masih dalam tahap aktif pengembangan.
+**⚠️ Under Heavy Development** — The current version is actively being developed.
 
-Fitur inti sudah mulai terbentuk, tapi masih banyak yang akan diubah dan ditambahkan.
+Core features are beginning to take shape, but many changes and additions will be made.
 
 ---
 
@@ -49,31 +43,30 @@ Fitur inti sudah mulai terbentuk, tapi masih banyak yang akan diubah dan ditamba
 
 ---
 
->>>>>>> b87e9c1095449bc105f22902c3c4a218afcb3f4e
 ## 🚀 Quick Start (Windows)
 
-### 1. Pertama kali — jalankan setup wizard
+### 1. First time — run the setup wizard
 
 ```powershell
-# Buka PowerShell sebagai Administrator
+# Open PowerShell as Administrator
 .\scripts\setup-windows.ps1
 ```
 
-Script ini otomatis menginstall: **Go**, **Git**, **Docker Desktop**, **VS Code**, dan extension yang dibutuhkan.
+This script automatically installs: **Go**, **Git**, **Docker Desktop**, **VS Code**, and required extensions.
 
-### 2. Cek semua dependency
+### 2. Check all dependencies
 
 ```powershell
 .\scripts\vfx.ps1 check
 ```
 
-### 3. Nyalakan stack development (PostgreSQL, Redis, MinIO, dll)
+### 3. Spin up the development stack (PostgreSQL, Redis, MinIO, etc.)
 
 ```powershell
 .\scripts\vfx.ps1 docker-up
 ```
 
-### 4. Bangunkan VampiFox!
+### 4. Awaken VampiFox!
 
 ```powershell
 .\scripts\vfx.ps1 awaken
@@ -81,34 +74,34 @@ Script ini otomatis menginstall: **Go**, **Git**, **Docker Desktop**, **VS Code*
 
 ---
 
-## 📋 Semua Perintah (`vfx.ps1`)
+## 📋 All Commands (`vfx.ps1`)
 
-| Perintah | Fungsi |
-|----------|--------|
-| `vfx.ps1 help` | Tampilkan semua perintah |
-| `vfx.ps1 awaken` | Jalankan server (dev mode) |
+| Command | Function |
+|---------|----------|
+| `vfx.ps1 help` | Show all commands |
+| `vfx.ps1 awaken` | Run server (dev mode) |
 | `vfx.ps1 build` | Build `vampifox.exe` |
 | `vfx.ps1 build-foxctl` | Build `foxctl.exe` (CLI tool) |
-| `vfx.ps1 test` | Jalankan semua test |
-| `vfx.ps1 test-cover` | Test + buka laporan coverage |
-| `vfx.ps1 docker-up` | Nyalakan stack dev |
-| `vfx.ps1 docker-down` | Matikan stack dev |
-| `vfx.ps1 migrate-up` | Jalankan migrasi DB |
-| `vfx.ps1 migrate-down` | Rollback migrasi |
-| `vfx.ps1 migrate-create add_users` | Buat file migrasi baru |
-| `vfx.ps1 check` | Cek semua dependency |
+| `vfx.ps1 test` | Run all tests |
+| `vfx.ps1 test-cover` | Test + open coverage report |
+| `vfx.ps1 docker-up` | Spin up dev stack |
+| `vfx.ps1 docker-down` | Spin down dev stack |
+| `vfx.ps1 migrate-up` | Run DB migrations |
+| `vfx.ps1 migrate-down` | Rollback migrations |
+| `vfx.ps1 migrate-create add_users` | Create new migration file |
+| `vfx.ps1 check` | Check all dependencies |
 
-> **Tip:** Bisa juga pakai `vfx.bat` dari CMD biasa — hasilnya sama.
+> **Tip:** You can also use `vfx.bat` from regular CMD — same result.
 
 ---
 
-## 🏗️ Arsitektur
+## 🏗️ Architecture
 
 ```
 vampifox/
 ├── cmd/
-│   ├── vampifox/        # Entry point server utama
-│   └── foxctl/          # CLI tool (scaffold, migrate, dll)
+│   ├── vampifox/        # Main server entry point
+│   └── foxctl/          # CLI tool (scaffold, migrate, etc.)
 │
 ├── internal/
 │   ├── den/             # 🏠 Dependency injection & lifecycle
@@ -116,28 +109,28 @@ vampifox/
 │   ├── shadow/          # 👤 Cache layer (Redis)
 │   ├── core/
 │   │   ├── tenant/      # Multi-tenancy engine
-│   │   ├── auth/        # JWT Sanctum (autentikasi)
+│   │   ├── auth/        # JWT Sanctum (authentication)
 │   │   ├── user/        # User management
 │   │   ├── rbac/        # Role-based access control
 │   │   └── audit/       # Audit trail
 │   ├── modules/
-│   │   ├── accounting/  # Akuntansi & keuangan
-│   │   ├── inventory/   # Manajemen stok
-│   │   ├── purchasing/  # Pembelian
-│   │   ├── sales/       # Penjualan
-│   │   ├── hrm/         # SDM & penggajian
-│   │   ├── crm/         # Manajemen pelanggan
-│   │   ├── project/     # Manajemen proyek
-│   │   └── assets/      # Aset tetap
+│   │   ├── accounting/  # Accounting & finance
+│   │   ├── inventory/   # Stock management
+│   │   ├── purchasing/  # Purchasing
+│   │   ├── sales/       # Sales
+│   │   ├── hrm/         # HR & payroll
+│   │   ├── crm/         # Customer management
+│   │   ├── project/     # Project management
+│   │   └── assets/      # Fixed assets
 │   └── api/
 │       ├── rest/v1/     # REST API
 │       ├── graphql/     # GraphQL API
 │       ├── webhook/     # Webhook handler
-│       └── middleware/  # Bloodgate (auth), Covenant (rbac), dll
+│       └── middleware/  # Bloodgate (auth), Covenant (rbac), etc.
 │
 ├── pkg/
-│   ├── foxutil/         # Utilities umum
-│   ├── bloodtype/       # Type definitions bersama
+│   ├── foxutil/         # Common utilities
+│   ├── bloodtype/       # Shared type definitions
 │   ├── nightvision/     # Logging & observability
 │   └── moonphase/       # Scheduler
 │
@@ -154,17 +147,17 @@ vampifox/
 
 ---
 
-## 🧛 Kamus Istilah VampiFox
+## 🧛 VampiFox Terminology
 
-| Istilah | Arti Teknis |
-|---------|-------------|
+| Term | Technical Meaning |
+|------|-------------------|
 | **Den** | DI Container & lifecycle manager |
-| **Fangs** | Koneksi database (PostgreSQL) |
+| **Fangs** | Database connection (PostgreSQL) |
 | **Shadow** | Cache layer (Redis) |
 | **Sanctum** | JWT auth manager |
 | **Bloodgate** | Auth middleware |
 | **Covenant** | RBAC middleware |
-| **Overlord** | Role: pemilik tenant |
+| **Overlord** | Role: tenant owner |
 | **Elder Vampire** | Role: admin |
 | **Daywalker** | Role: manager |
 | **Familiar** | Role: staff |
@@ -177,7 +170,7 @@ vampifox/
 
 ## 🛠️ Tech Stack
 
-| Layer | Teknologi |
+| Layer | Technology |
 |-------|-----------|
 | Language | **Go 1.23+** |
 | Web Framework | **Gin** |
@@ -194,9 +187,9 @@ vampifox/
 
 ---
 
-## 📄 Lisensi
+## 📄 License
 
-MIT License — bebas digunakan, dimodifikasi, dan didistribusikan.
+MIT License — free to use, modify, and distribute.
 
 ---
 
